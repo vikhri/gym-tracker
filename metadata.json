@@ -1,0 +1,5 @@
+{
+  "name": "Mini Gym Tracker",
+  "description": "A simple and minimalistic web application for tracking your gym workouts. Log exercises, sets, and progress with ease. Works offline and can be added to your home screen as a PWA.",
+  "requestFramePermissions": []
+}
