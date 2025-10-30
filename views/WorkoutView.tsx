@@ -195,15 +195,17 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ workoutToEdit, setWorkoutToEd
                                     <span className="text-center font-medium text-gray-600">{setIndex + 1}</span>
                                     <input
                                         type="number"
-                                        value={set.reps}
-                                        onChange={(e) => updateSet(woExercise.id, set.id, 'reps', parseInt(e.target.value) || 0)}
+                                        min="0"
+                                        value={set.reps || ''}
+                                        onChange={(e) => updateSet(woExercise.id, set.id, 'reps', Math.max(0, parseInt(e.target.value) || 0))}
                                         className="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                     />
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="number"
-                                            value={set.weight}
-                                            onChange={(e) => updateSet(woExercise.id, set.id, 'weight', parseInt(e.target.value) || 0)}
+                                            min="0"
+                                            value={set.weight || ''}
+                                            onChange={(e) => updateSet(woExercise.id, set.id, 'weight', Math.max(0, parseInt(e.target.value) || 0))}
                                             className="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                         />
                                         {woExercise.sets.length > 1 && (
