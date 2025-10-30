@@ -1,6 +1,9 @@
+
 import React, { useState, createContext, useMemo, useEffect } from 'react';
 import { auth, db } from './firebase';
-import type { User } from 'firebase/compat/app';
+// FIX: The User type is not a named export from 'firebase/compat/app'.
+// It is available on the default-exported firebase namespace.
+import firebase from 'firebase/compat/app';
 import { Workout, Exercise } from './types';
 import Layout from './components/Layout';
 import WorkoutView from './views/WorkoutView';
@@ -21,7 +24,7 @@ export const AppContext = createContext<{
 
 
 function useAuth() {
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<firebase.User | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
