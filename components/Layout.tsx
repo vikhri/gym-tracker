@@ -35,7 +35,7 @@ const SideMenu: React.FC<{
      const navItems = [
         { id: 'workout', label: 'Тренировка' },
         { id: 'exercises', label: 'Упражнения' },
-        { id: 'history', label: 'Прошлые тренировки' },
+        { id: 'history', label: 'История тренировок' },
     ];
 
     const handleNavClick = (tabId: string) => {
@@ -58,7 +58,7 @@ const SideMenu: React.FC<{
             ></div>
 
             {/* Меню */}
-            <div className={`fixed top-0 left-0 h-full bg-white w-64 shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`} role="dialog" aria-modal="true">
+            <div className={`fixed top-0 right-0 h-full bg-white w-64 shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`} role="dialog" aria-modal="true">
                 <div>
                     <div className="p-4 flex justify-between items-center border-b">
                         <h2 className="text-lg font-bold text-gray-800">Меню</h2>

@@ -59,7 +59,7 @@ const HistoryView: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Прошлые тренировки</h1>
+            <h1 className="text-2xl font-bold text-gray-800">История тренировок</h1>
             
             {Object.entries(groupedWorkouts).map(([monthYear, monthWorkouts]) => {
                 const visibleInGroup = (monthWorkouts as Workout[]).filter(w => visibleWorkouts.some(vw => vw.id === w.id));
