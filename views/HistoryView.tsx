@@ -1,4 +1,5 @@
 
+
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
@@ -8,6 +9,7 @@ import { ru } from 'date-fns/locale/ru';
 import { Workout, WorkoutExercise, WeightEntry } from '../types';
 import ChevronDownIcon from '../components/icons/ChevronDownIcon';
 import ChevronUpIcon from '../components/icons/ChevronUpIcon';
+import PencilIcon from '../components/icons/PencilIcon';
 
 const HistoryView: React.FC = () => {
     const context = useContext(AppContext);
@@ -99,11 +101,23 @@ const HistoryView: React.FC = () => {
                             {visibleInGroup.map((workout) => (
                                 <div key={workout.id} className="bg-white p-4 rounded-lg shadow-sm">
                                     <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExpand(workout.id)}>
-                                        <div>
+                                        <div className="pr-4">
                                             <p className="font-semibold text-gray-800">{format(new Date(workout.date), 'd MMMM, EEEE', { locale: ru })}</p>
                                             <p className="text-sm text-gray-500">{workout.exercises.length} упр. • Общий тоннаж: {calculateWorkoutVolume(workout).toLocaleString('ru-RU')} кг</p>
                                         </div>
-                                        {expandedWorkoutId === workout.id ? <ChevronUpIcon/> : <ChevronDownIcon/>}
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(workout);
+                                                }}
+                                                className="text-blue-500 hover:text-blue-700 p-1"
+                                                aria-label={`Редактировать тренировку от ${format(new Date(workout.date), 'd MMMM', { locale: ru })}`}
+                                            >
+                                                <PencilIcon className="w-5 h-5" />
+                                            </button>
+                                            {expandedWorkoutId === workout.id ? <ChevronUpIcon className="text-gray-500" /> : <ChevronDownIcon className="text-gray-500" />}
+                                        </div>
                                     </div>
                                     {expandedWorkoutId === workout.id && (
                                         <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
