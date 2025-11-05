@@ -4,6 +4,7 @@ import PlusIcon from './icons/PlusIcon';
 import ClipboardListIcon from './icons/ClipboardListIcon';
 import XIcon from './icons/XIcon';
 import BurgerIcon from './icons/BurgerIcon';
+import DumbbellIcon from './icons/DumbbellIcon';
 
 interface FabProps {
     setActiveTab: (tab: string) => void;
@@ -23,6 +24,12 @@ const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkou
         setActiveTab('exercises');
         setIsOpen(false);
     };
+
+    const handleHistory = () => {
+        setActiveTab('history');
+        setIsOpen(false);
+    };
+
 
     // Close on click outside
     useEffect(() => {
@@ -45,7 +52,7 @@ const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkou
         };
     }, [isOpen]);
 
-    const subButtonBaseStyle = "w-14 h-14 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 ease-out transform active:scale-95 absolute bottom-1 right-1";
+    const subButtonBaseStyle = "w-14 h-14 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ease-out transform active:scale-95 absolute bottom-1 right-1";
 
     return (
         <div ref={node} className="fixed bottom-6 right-6 z-30">
@@ -66,12 +73,28 @@ const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkou
                     <PlusIcon className="w-7 h-7" />
                 </button>
                 
+                {/* History Button (Blue) */}
+                <button
+                    onClick={handleHistory}
+                    className={`${subButtonBaseStyle} bg-blue-500 hover:bg-blue-600`}
+                    style={{
+                        transitionDelay: isOpen ? '0.2s' : '0.1s',
+                        transform: isOpen ? 'translateY(-7rem)' : 'translate(0, 0)',
+                        opacity: isOpen ? 1 : 0,
+                        pointerEvents: isOpen ? 'auto' : 'none'
+                    }}
+                    aria-label="История тренировок"
+                    tabIndex={isOpen ? 0 : -1}
+                >
+                    <ClipboardListIcon className="w-7 h-7" />
+                </button>
+                
                 {/* Exercises Button (Purple) */}
                 <button
                     onClick={handleExercises}
                     className={`${subButtonBaseStyle} bg-purple-500 hover:bg-purple-600`}
                      style={{ 
-                        transitionDelay: isOpen ? '0.2s' : '0.1s',
+                        transitionDelay: isOpen ? '0.3s' : '0s',
                         transform: isOpen ? 'translate(-6rem, -2.5rem)' : 'translate(0, 0)',
                         opacity: isOpen ? 1 : 0,
                         pointerEvents: isOpen ? 'auto' : 'none'
@@ -79,7 +102,7 @@ const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkou
                     aria-label="Упражнения"
                     tabIndex={isOpen ? 0 : -1}
                 >
-                    <ClipboardListIcon className="w-7 h-7" />
+                    <DumbbellIcon className="w-7 h-7" />
                 </button>
                 
                 {/* Main FAB */}

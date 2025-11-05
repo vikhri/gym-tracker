@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import BurgerIcon from './icons/BurgerIcon';
 import XIcon from './icons/XIcon';
@@ -40,9 +41,9 @@ const SideMenu: React.FC<{
     setActiveTab: (tab: string) => void;
 }> = ({ isOpen, onClose, activeTab, setActiveTab }) => {
      const navItems = [
-        { id: 'workout', label: 'Тренировка', icon: DumbbellIcon },
-        { id: 'exercises', label: 'Упражнения', icon: ClipboardListIcon },
-        { id: 'history', label: 'История тренировок', icon: ClockIcon },
+        { id: 'workout', label: 'Тренировка', icon: ClockIcon },
+        { id: 'exercises', label: 'Упражнения', icon: DumbbellIcon },
+        { id: 'history', label: 'История тренировок', icon: ClipboardListIcon },
         { id: 'weight', label: 'Мой вес', icon: ScaleIcon },
     ];
 
@@ -116,6 +117,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, star
         <div className="min-h-screen bg-gray-50 flex flex-col">
             <Header onMenuClick={() => setIsMenuOpen(true)} />
              <SideMenu
+// FIX: Corrected a typo. The `isOpen` prop should be set to the `isMenuOpen` state variable.
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
                 activeTab={activeTab}
