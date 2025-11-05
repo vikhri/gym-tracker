@@ -13,6 +13,8 @@ interface ChartDataPoint {
 }
 
 const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
+    const [activePoint, setActivePoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
+
     if (data.length < 2) {
         return <div className="text-center text-gray-500 py-10">Недостаточно данных для построения графика.</div>;
     }
@@ -47,7 +49,13 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
 
 
     return (
-        <svg viewBox={`0 0 ${VIEW_BOX_WIDTH} ${VIEW_BOX_HEIGHT}`} className="w-full h-auto" aria-labelledby="chart-title" role="img">
+        <svg 
+            viewBox={`0 0 ${VIEW_BOX_WIDTH} ${VIEW_BOX_HEIGHT}`} 
+            className="w-full h-auto" 
+            aria-labelledby="chart-title" 
+            role="img"
+            onClick={() => setActivePoint(null)}
+        >
             <title id="chart-title">График изменения веса</title>
             
             {/* Y-axis grid lines and labels */}
@@ -79,11 +87,64 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
 
             {/* Points */}
             {points.map((point, i) => (
-                <g key={i}>
+                <g 
+                    key={i} 
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setActivePoint(activePoint && activePoint.label === point.label ? null : point);
+                    }}
+                >
                     <circle cx={point.x} cy={point.y} r="3" fill="#3b82f6" />
+                    <circle cx={point.x} cy={point.y} r="10" fill="transparent" />
                     <title>{`${point.label}: ${point.value} кг`}</title>
                 </g>
             ))}
+
+            {/* Tooltip */}
+            {activePoint && (
+                <g 
+                    transform={`translate(${activePoint.x}, ${activePoint.y})`}
+                    className="pointer-events-none"
+                >
+                    {(() => {
+                        const tooltipText = `${activePoint.value} кг`;
+                        const textLength = tooltipText.length;
+                        const width = textLength * 7 + 16;
+                        const height = 24;
+                        const arrowHeight = 5;
+                        const yOffset = -(height + arrowHeight + 8);
+
+                        return (
+                            <g transform={`translate(0, ${yOffset})`}>
+                                <rect 
+                                    x={-width / 2} 
+                                    y="0"
+                                    width={width} 
+                                    height={height} 
+                                    rx="4" 
+                                    fill="rgba(17, 24, 39, 0.9)"
+                                />
+                                <text 
+                                    x="0" 
+                                    y={height / 2}
+                                    textAnchor="middle" 
+                                    alignmentBaseline="middle" 
+                                    fill="white" 
+                                    fontSize="12"
+                                    fontWeight="500"
+                                >
+                                    {tooltipText}
+                                </text>
+                                <path 
+                                    d={`M -5 ${height} L 5 ${height} L 0 ${height + arrowHeight} Z`}
+                                    fill="rgba(17, 24, 39, 0.9)"
+                                />
+                            </g>
+                        );
+                    })()}
+                </g>
+            )}
         </svg>
     );
 };
