@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { AppContext } from '../App';
 import { Workout, WorkoutExercise, Set, Exercise } from '../types';
@@ -11,11 +12,11 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 
 interface WorkoutViewProps {
-    workoutToEdit: Workout | null;
-    setWorkoutToEdit: (workout: Workout | null) => void;
+    currentWorkout: Workout | Omit<Workout, 'id'>;
+    setCurrentWorkout: (workout: Workout | Omit<Workout, 'id'>) => void;
 }
 
-const WorkoutView: React.FC<WorkoutViewProps> = ({ workoutToEdit, setWorkoutToEdit }) => {
+const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWorkout }) => {
     const context = useContext(AppContext);
     if (!context) return null;
 
@@ -26,26 +27,8 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ workoutToEdit, setWorkoutToEd
         exercises: [],
     });
 
-    const [currentWorkout, setCurrentWorkout] = useState<Workout | Omit<Workout, 'id'>>(
-        workoutToEdit || createNewWorkout()
-    );
-
     const [selectedExercise, setSelectedExercise] = useState('');
     const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (workoutToEdit) {
-            setCurrentWorkout(workoutToEdit);
-            if (workoutToEdit.exercises.length > 0) {
-                setExpandedExerciseId(workoutToEdit.exercises[0].id);
-            } else {
-                setExpandedExerciseId(null);
-            }
-        } else {
-            setCurrentWorkout(createNewWorkout());
-            setExpandedExerciseId(null);
-        }
-    }, [workoutToEdit]);
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setCurrentWorkout({ ...currentWorkout, date: e.target.value });
@@ -117,7 +100,6 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ workoutToEdit, setWorkoutToEd
     const saveWorkout = () => {
         if ('id' in currentWorkout) { // Editing existing workout
             updateWorkout(currentWorkout);
-            setWorkoutToEdit(null);
         } else { // Adding new workout
             addWorkout(currentWorkout);
         }
@@ -126,6 +108,8 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ workoutToEdit, setWorkoutToEd
     };
     
     const getExerciseName = (id: string) => exercises.find(e => e.id === id)?.name || 'Unknown Exercise';
+    
+    const isEditing = 'id' in currentWorkout;
 
     const PreviousWorkoutHint: React.FC<{ exerciseId: string }> = ({ exerciseId }) => {
         const lastWorkout = useMemo(() => {
@@ -153,7 +137,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ workoutToEdit, setWorkoutToEd
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">{workoutToEdit ? 'Редактировать тренировку' : 'Новая тренировка'}</h1>
+            <h1 className="text-2xl font-bold text-gray-800">{isEditing ? 'Редактировать тренировку' : 'Новая тренировка'}</h1>
             <div className="bg-white p-4 rounded-lg shadow-sm">
                 <label htmlFor="workout-date" className="block text-sm font-medium text-gray-700">Дата</label>
                 <input
@@ -241,7 +225,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ workoutToEdit, setWorkoutToEd
             </div>
 
             <Button onClick={saveWorkout} disabled={currentWorkout.exercises.length === 0}>
-                {workoutToEdit ? 'Сохранить изменения' : 'Завершить тренировку'}
+                {isEditing ? 'Сохранить изменения' : 'Завершить тренировку'}
             </Button>
         </div>
     );

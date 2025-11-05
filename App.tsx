@@ -10,6 +10,7 @@ import WorkoutView from './views/WorkoutView';
 import ExercisesView from './views/ExercisesView';
 import HistoryView from './views/HistoryView';
 import LoginView from './views/LoginView';
+import useLocalStorage from './hooks/useLocalStorage';
 
 export const AppContext = createContext<{
     workouts: Workout[];
@@ -38,18 +39,28 @@ function useAuth() {
     return { user, loading };
 }
 
+const createNewWorkout = (): Omit<Workout, 'id'> => ({
+    date: new Date().toISOString().split('T')[0],
+    exercises: [],
+});
+
 
 const App: React.FC = () => {
     const { user, loading } = useAuth();
     const [activeTab, setActiveTab] = useState('workout');
     const [workouts, setWorkouts] = useState<Workout[]>([]);
     const [exercises, setExercises] = useState<Exercise[]>([]);
-    const [workoutToEdit, setWorkoutToEdit] = useState<Workout | null>(null);
+    const [currentWorkout, setCurrentWorkout] = useLocalStorage<Workout | Omit<Workout, 'id'>>(
+        'currentWorkout',
+        createNewWorkout()
+    );
+
 
     useEffect(() => {
         if (!user) {
             setWorkouts([]);
             setExercises([]);
+            setCurrentWorkout(createNewWorkout());
             return;
         }
 
@@ -85,10 +96,12 @@ const App: React.FC = () => {
             exercisesUnsub();
             workoutsUnsub();
         };
-    }, [user]);
+    }, [user, setCurrentWorkout]);
 
     const editWorkout = (workout: Workout | null) => {
-        setWorkoutToEdit(workout);
+        if (workout) {
+            setCurrentWorkout(workout);
+        }
         setActiveTab('workout');
     };
     
@@ -133,13 +146,13 @@ const App: React.FC = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'workout':
-                return <WorkoutView workoutToEdit={workoutToEdit} setWorkoutToEdit={setWorkoutToEdit} />;
+                return <WorkoutView currentWorkout={currentWorkout} setCurrentWorkout={setCurrentWorkout} />;
             case 'exercises':
                 return <ExercisesView />;
             case 'history':
                 return <HistoryView />;
             default:
-                return <WorkoutView workoutToEdit={workoutToEdit} setWorkoutToEdit={setWorkoutToEdit} />;
+                return <WorkoutView currentWorkout={currentWorkout} setCurrentWorkout={setCurrentWorkout} />;
         }
     };
     
