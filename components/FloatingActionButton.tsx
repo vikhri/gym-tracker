@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import PlusIcon from './icons/PlusIcon';
 import ClipboardListIcon from './icons/ClipboardListIcon';
@@ -53,33 +54,38 @@ const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkou
     }, [isOpen]);
 
     const subButtonBaseStyle = "w-14 h-14 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ease-out transform active:scale-95 absolute bottom-1 right-1";
+    
+    // Positions for buttons on a circular arc
+    const distance = '6.5rem';
+    // 6.5rem * cos(45deg) or sin(45deg)
+    const diagonalDistance = '4.6rem'; 
 
     return (
         <div ref={node} className="fixed bottom-6 right-6 z-30">
             <div className="relative w-16 h-16">
-                 {/* New Workout Button (Green) */}
+                 {/* Exercises Button (Purple) - 90 degrees from top */}
                 <button
-                    onClick={handleNewWorkout}
-                    className={`${subButtonBaseStyle} bg-green-500 hover:bg-green-600`}
-                    style={{ 
+                    onClick={handleExercises}
+                    className={`${subButtonBaseStyle} bg-purple-500 hover:bg-purple-600`}
+                     style={{ 
                         transitionDelay: isOpen ? '0.1s' : '0.2s',
-                        transform: isOpen ? 'translate(-2.5rem, -6rem)' : 'translate(0, 0)',
+                        transform: isOpen ? `translateX(-${distance})` : 'translate(0, 0)',
                         opacity: isOpen ? 1 : 0,
                         pointerEvents: isOpen ? 'auto' : 'none'
                     }}
-                    aria-label="Новая тренировка"
+                    aria-label="Упражнения"
                     tabIndex={isOpen ? 0 : -1}
                 >
-                    <PlusIcon className="w-7 h-7" />
+                    <DumbbellIcon className="w-7 h-7" />
                 </button>
                 
-                {/* History Button (Blue) */}
+                {/* History Button (Blue) - 45 degrees from top */}
                 <button
                     onClick={handleHistory}
                     className={`${subButtonBaseStyle} bg-blue-500 hover:bg-blue-600`}
                     style={{
                         transitionDelay: isOpen ? '0.2s' : '0.1s',
-                        transform: isOpen ? 'translateY(-7rem)' : 'translate(0, 0)',
+                        transform: isOpen ? `translate(-${diagonalDistance}, -${diagonalDistance})` : 'translate(0, 0)',
                         opacity: isOpen ? 1 : 0,
                         pointerEvents: isOpen ? 'auto' : 'none'
                     }}
@@ -88,21 +94,21 @@ const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkou
                 >
                     <ClipboardListIcon className="w-7 h-7" />
                 </button>
-                
-                {/* Exercises Button (Purple) */}
+
+                {/* New Workout Button (Green) - 0 degrees from top (straight up) */}
                 <button
-                    onClick={handleExercises}
-                    className={`${subButtonBaseStyle} bg-purple-500 hover:bg-purple-600`}
-                     style={{ 
+                    onClick={handleNewWorkout}
+                    className={`${subButtonBaseStyle} bg-green-500 hover:bg-green-600`}
+                    style={{ 
                         transitionDelay: isOpen ? '0.3s' : '0s',
-                        transform: isOpen ? 'translate(-6rem, -2.5rem)' : 'translate(0, 0)',
+                        transform: isOpen ? `translateY(-${distance})` : 'translate(0, 0)',
                         opacity: isOpen ? 1 : 0,
                         pointerEvents: isOpen ? 'auto' : 'none'
                     }}
-                    aria-label="Упражнения"
+                    aria-label="Новая тренировка"
                     tabIndex={isOpen ? 0 : -1}
                 >
-                    <DumbbellIcon className="w-7 h-7" />
+                    <PlusIcon className="w-7 h-7" />
                 </button>
                 
                 {/* Main FAB */}
