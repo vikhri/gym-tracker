@@ -169,6 +169,11 @@ const App: React.FC = () => {
         addWeightEntry
     }), [workouts, exercises, user, weightEntries]);
 
+    const startNewWorkout = () => {
+        setCurrentWorkout(createNewWorkout());
+        setActiveTab('workout');
+    };
+
     const renderContent = () => {
         switch (activeTab) {
             case 'workout':
@@ -198,7 +203,7 @@ const App: React.FC = () => {
 
     return (
         <AppContext.Provider value={contextValue}>
-            <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+            <Layout activeTab={activeTab} setActiveTab={setActiveTab} startNewWorkout={startNewWorkout}>
                 {renderContent()}
             </Layout>
         </AppContext.Provider>

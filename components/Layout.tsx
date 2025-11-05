@@ -8,11 +8,13 @@ import DumbbellIcon from './icons/DumbbellIcon';
 import ClipboardListIcon from './icons/ClipboardListIcon';
 import ClockIcon from './icons/ClockIcon';
 import ScaleIcon from './icons/ScaleIcon';
+import FloatingActionButton from './FloatingActionButton';
 
 interface LayoutProps {
     children: React.ReactNode;
     activeTab: string;
     setActiveTab: (tab: string) => void;
+    startNewWorkout: () => void;
 }
 
 const Header: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
@@ -107,7 +109,7 @@ const SideMenu: React.FC<{
 }
 
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, startNewWorkout }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     return (
@@ -119,9 +121,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
             />
-            <main className="flex-grow p-4 pt-20">
+            <main className="flex-grow p-4 pt-20 pb-24">
                 {children}
             </main>
+            <FloatingActionButton setActiveTab={setActiveTab} startNewWorkout={startNewWorkout} />
         </div>
     );
 };
