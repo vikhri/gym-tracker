@@ -108,7 +108,7 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
                     className="pointer-events-none"
                 >
                     {(() => {
-                        const tooltipText = `${activePoint.value} кг`;
+                        const tooltipText = `${activePoint.label}: ${activePoint.value} кг`;
                         const textLength = tooltipText.length;
                         const width = textLength * 7 + 16;
                         const height = 24;
