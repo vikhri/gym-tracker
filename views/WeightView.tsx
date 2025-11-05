@@ -10,10 +10,11 @@ import { WeightEntry } from '../types';
 interface ChartDataPoint {
     label: string;
     value: number;
+    fullDate: string;
 }
 
 const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
-    const [activePoint, setActivePoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
+    const [activePoint, setActivePoint] = useState<{ x: number; y: number; value: number; label: string; fullDate: string } | null>(null);
 
     if (data.length < 2) {
         return <div className="text-center text-gray-500 py-10">Недостаточно данных для построения графика.</div>;
@@ -40,7 +41,7 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
     const points = data.map((point, i) => {
         const x = PADDING + i * xStep;
         const y = VIEW_BOX_HEIGHT - PADDING - ((point.value - yMin) / yRange) * (VIEW_BOX_HEIGHT - PADDING * 2);
-        return { x, y, value: point.value, label: point.label };
+        return { x, y, value: point.value, label: point.label, fullDate: point.fullDate };
     });
 
     const path = points.map((p, i) => (i === 0 ? 'M' : 'L') + `${p.x} ${p.y}`).join(' ');
@@ -92,12 +93,12 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
                     className="cursor-pointer"
                     onClick={(e) => {
                         e.stopPropagation();
-                        setActivePoint(activePoint && activePoint.label === point.label ? null : point);
+                        setActivePoint(activePoint && activePoint.fullDate === point.fullDate ? null : point);
                     }}
                 >
                     <circle cx={point.x} cy={point.y} r="3" fill="#3b82f6" />
                     <circle cx={point.x} cy={point.y} r="10" fill="transparent" />
-                    <title>{`${point.label}: ${point.value} кг`}</title>
+                    <title>{`${point.fullDate}\n${point.value} кг`}</title>
                 </g>
             ))}
 
@@ -108,10 +109,11 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
                     className="pointer-events-none"
                 >
                     {(() => {
-                        const tooltipText = `${activePoint.label}: ${activePoint.value} кг`;
-                        const textLength = tooltipText.length;
-                        const width = textLength * 7 + 16;
-                        const height = 24;
+                        const dateText = activePoint.fullDate;
+                        const weightText = `${activePoint.value} кг`;
+                        const textLength = Math.max(dateText.length, weightText.length);
+                        const width = textLength * 7 + 24;
+                        const height = 40;
                         const arrowHeight = 5;
                         const yOffset = -(height + arrowHeight + 8);
 
@@ -134,7 +136,8 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
                                     fontSize="12"
                                     fontWeight="500"
                                 >
-                                    {tooltipText}
+                                    <tspan x="0" dy="-0.6em">{dateText}</tspan>
+                                    <tspan x="0" dy="1.2em">{weightText}</tspan>
                                 </text>
                                 <path 
                                     d={`M -5 ${height} L 5 ${height} L 0 ${height + arrowHeight} Z`}
@@ -191,7 +194,8 @@ const WeightView: React.FC = () => {
         if (chartView === 'daily') {
             return weightEntries.map(entry => ({
                 label: format(parseISO(entry.date), 'd MMM', { locale: ru }),
-                value: entry.weight
+                value: entry.weight,
+                fullDate: format(parseISO(entry.date), 'd MMMM yyyy', { locale: ru }),
             }));
         } else {
             const weeklyData: { [key: string]: { sum: number, count: number, date: Date } } = {};
@@ -213,7 +217,8 @@ const WeightView: React.FC = () => {
                 .map(key => weeklyData[key])
                 .map(week => ({
                     label: format(week.date, 'd MMM', { locale: ru }),
-                    value: parseFloat((week.sum / week.count).toFixed(1))
+                    value: parseFloat((week.sum / week.count).toFixed(1)),
+                    fullDate: `Неделя с ${format(week.date, 'd MMM', { locale: ru })}`
             }));
         }
     }, [weightEntries, chartView]);
