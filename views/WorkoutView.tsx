@@ -42,9 +42,9 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
             id: crypto.randomUUID(),
             exerciseId: exerciseId,
             sets: [
-                { id: crypto.randomUUID(), reps: 0, weight: 0 },
-                { id: crypto.randomUUID(), reps: 0, weight: 0 },
-                { id: crypto.randomUUID(), reps: 0, weight: 0 },
+                { id: crypto.randomUUID(), reps: 10, weight: 0 },
+                { id: crypto.randomUUID(), reps: 10, weight: 0 },
+                { id: crypto.randomUUID(), reps: 10, weight: 0 },
             ],
         };
         setCurrentWorkout({ ...currentWorkout, exercises: [...currentWorkout.exercises, newExercise] });
@@ -79,7 +79,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
     const addSet = (exerciseId: string) => {
         const updatedExercises = currentWorkout.exercises.map((ex) => {
             if (ex.id === exerciseId) {
-                const newSet: Set = { id: crypto.randomUUID(), reps: 0, weight: 0 };
+                const newSet: Set = { id: crypto.randomUUID(), reps: 10, weight: 0 };
                 return { ...ex, sets: [...ex.sets, newSet] };
             }
             return ex;
