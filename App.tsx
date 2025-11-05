@@ -4,13 +4,14 @@ import { auth, db } from './firebase';
 // FIX: The User type is not a named export from 'firebase/compat/app'.
 // It is available on the default-exported firebase namespace.
 import firebase from 'firebase/compat/app';
-import { Workout, Exercise } from './types';
+import { Workout, Exercise, WeightEntry } from './types';
 import Layout from './components/Layout';
 import WorkoutView from './views/WorkoutView';
 import ExercisesView from './views/ExercisesView';
 import HistoryView from './views/HistoryView';
 import LoginView from './views/LoginView';
 import useLocalStorage from './hooks/useLocalStorage';
+import WeightView from './views/WeightView';
 
 export const AppContext = createContext<{
     workouts: Workout[];
@@ -21,6 +22,8 @@ export const AppContext = createContext<{
     addExercise: (exercise: Omit<Exercise, 'id'>) => void;
     deleteExercise: (id: string) => void;
     editWorkout: (workout: Workout | null) => void;
+    weightEntries: WeightEntry[];
+    addWeightEntry: (weightEntry: Omit<WeightEntry, 'id'>) => void;
 } | null>(null);
 
 
@@ -50,6 +53,7 @@ const App: React.FC = () => {
     const [activeTab, setActiveTab] = useState('workout');
     const [workouts, setWorkouts] = useState<Workout[]>([]);
     const [exercises, setExercises] = useState<Exercise[]>([]);
+    const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
     const [currentWorkout, setCurrentWorkout] = useLocalStorage<Workout | Omit<Workout, 'id'>>(
         'currentWorkout',
         createNewWorkout()
@@ -60,6 +64,7 @@ const App: React.FC = () => {
         if (!user) {
             setWorkouts([]);
             setExercises([]);
+            setWeightEntries([]);
             setCurrentWorkout(createNewWorkout());
             return;
         }
@@ -91,10 +96,17 @@ const App: React.FC = () => {
             const fetchedWorkouts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout));
             setWorkouts(fetchedWorkouts);
         });
+        
+        const weightCollection = db.collection('users').doc(user.uid).collection('weightEntries');
+        const weightUnsub = weightCollection.orderBy('date', 'asc').onSnapshot(snapshot => {
+            const fetchedWeights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeightEntry));
+            setWeightEntries(fetchedWeights);
+        });
 
         return () => {
             exercisesUnsub();
             workoutsUnsub();
+            weightUnsub();
         };
     }, [user, setCurrentWorkout]);
 
@@ -130,6 +142,11 @@ const App: React.FC = () => {
     const deleteExercise = (id: string) => {
          db.collection('global-exercises').doc(id).delete();
     }
+    
+    const addWeightEntry = (weightEntry: Omit<WeightEntry, 'id'>) => {
+        if (!user) return;
+        db.collection('users').doc(user.uid).collection('weightEntries').add(weightEntry);
+    }
 
 
     const contextValue = useMemo(() => ({
@@ -141,7 +158,9 @@ const App: React.FC = () => {
         addExercise,
         deleteExercise,
         editWorkout,
-    }), [workouts, exercises, user]);
+        weightEntries,
+        addWeightEntry
+    }), [workouts, exercises, user, weightEntries]);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -151,6 +170,8 @@ const App: React.FC = () => {
                 return <ExercisesView />;
             case 'history':
                 return <HistoryView />;
+            case 'weight':
+                return <WeightView />;
             default:
                 return <WorkoutView currentWorkout={currentWorkout} setCurrentWorkout={setCurrentWorkout} />;
         }

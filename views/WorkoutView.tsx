@@ -180,7 +180,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
                                     <input
                                         type="number"
                                         min="0"
-                                        value={set.reps || ''}
+                                        value={set.reps}
                                         onChange={(e) => updateSet(woExercise.id, set.id, 'reps', Math.max(0, parseInt(e.target.value) || 0))}
                                         className="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                     />
@@ -188,7 +188,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
                                         <input
                                             type="number"
                                             min="0"
-                                            value={set.weight || ''}
+                                            value={set.weight}
                                             onChange={(e) => updateSet(woExercise.id, set.id, 'weight', Math.max(0, parseInt(e.target.value) || 0))}
                                             className="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                         />

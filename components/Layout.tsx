@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import BurgerIcon from './icons/BurgerIcon';
 import XIcon from './icons/XIcon';
@@ -36,6 +37,7 @@ const SideMenu: React.FC<{
         { id: 'workout', label: 'Тренировка' },
         { id: 'exercises', label: 'Упражнения' },
         { id: 'history', label: 'История тренировок' },
+        { id: 'weight', label: 'Мой вес' },
     ];
 
     const handleNavClick = (tabId: string) => {

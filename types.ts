@@ -21,3 +21,9 @@ export interface Exercise {
   id: string;
   name: string;
 }
+
+export interface WeightEntry {
+  id: string;
+  date: string; // ISO string date
+  weight: number;
+}
