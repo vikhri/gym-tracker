@@ -1,8 +1,9 @@
 
+
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
-import { format, subDays, parseISO, isSameDay, startOfWeek, getISOWeek, endOfWeek } from 'date-fns';
+import { format, subDays, parseISO, isSameDay, startOfWeek, getISOWeek } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { WeightEntry } from '../types';
 
@@ -94,6 +95,8 @@ const WeightView: React.FC = () => {
 
     const { weightEntries, addWeightEntry } = context;
     const [newWeight, setNewWeight] = useState('');
+    const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+    // FIX: Initialize chartView state to manage chart type (daily/weekly).
     const [chartView, setChartView] = useState<'daily' | 'weekly'>('daily');
 
     const todaysWeight = useMemo(() => {
@@ -116,39 +119,41 @@ const WeightView: React.FC = () => {
 
     const handleSaveWeight = () => {
         const weightValue = parseFloat(newWeight);
-        if (!isNaN(weightValue) && weightValue > 0) {
-            const today = new Date().toISOString().split('T')[0];
-            const existingEntry = weightEntries.find(e => e.date === today);
-            
-            // For simplicity, we are adding a new entry.
-            // A more robust solution might update an existing entry for the same day.
-            addWeightEntry({ date: today, weight: weightValue });
+        if (!isNaN(weightValue) && weightValue > 0 && newDate) {
+            addWeightEntry({ date: newDate, weight: weightValue });
             setNewWeight('');
         }
     };
     
     const chartData = useMemo<ChartDataPoint[]>(() => {
+        // weightEntries are pre-sorted by date from Firestore
         if (chartView === 'daily') {
             return weightEntries.map(entry => ({
                 label: format(parseISO(entry.date), 'd MMM', { locale: ru }),
                 value: entry.weight
             }));
         } else {
-            const weeklyData: { [week: number]: { sum: number, count: number, date: Date } } = {};
+            const weeklyData: { [key: string]: { sum: number, count: number, date: Date } } = {};
             weightEntries.forEach(entry => {
                 const date = parseISO(entry.date);
+                const year = date.getFullYear();
                 const week = getISOWeek(date);
-                if (!weeklyData[week]) {
-                    weeklyData[week] = { sum: 0, count: 0, date: startOfWeek(date, { weekStartsOn: 1 }) };
+                const key = `${year}-${week.toString().padStart(2, '0')}`;
+
+                if (!weeklyData[key]) {
+                    weeklyData[key] = { sum: 0, count: 0, date: startOfWeek(date, { weekStartsOn: 1 }) };
                 }
-                weeklyData[week].sum += entry.weight;
-                weeklyData[week].count++;
+                weeklyData[key].sum += entry.weight;
+                weeklyData[key].count++;
             });
 
-            return Object.values(weeklyData).map(week => ({
-                label: format(week.date, 'd MMM', { locale: ru }),
-                value: parseFloat((week.sum / week.count).toFixed(1))
-            })).sort((a,b) => parseISO(a.label) - parseISO(b.label));
+            return Object.keys(weeklyData)
+                .sort()
+                .map(key => weeklyData[key])
+                .map(week => ({
+                    label: format(week.date, 'd MMM', { locale: ru }),
+                    value: parseFloat((week.sum / week.count).toFixed(1))
+            }));
         }
     }, [weightEntries, chartView]);
 
@@ -173,23 +178,37 @@ const WeightView: React.FC = () => {
 
              <div className="bg-white p-4 rounded-lg shadow-sm space-y-3">
                 <h2 className="text-lg font-semibold text-gray-900">Добавить измерение</h2>
-                <div className="flex items-center gap-2">
-                    <input
-                        type="text"
-                        inputMode="decimal"
-                        value={newWeight}
-                        onChange={(e) => {
-                            const val = e.target.value.replace(',', '.');
-                            if (/^\d*\.?\d*$/.test(val)) {
-                                setNewWeight(val);
-                            }
-                        }}
-                        placeholder="Введите вес, кг"
-                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
-                    />
-                    <Button onClick={handleSaveWeight} disabled={!newWeight.trim()} className="flex-shrink-0 w-auto">
-                        Сохранить
-                    </Button>
+                 <div className="space-y-2">
+                    <div>
+                        <label htmlFor="weight-date" className="sr-only">Дата</label>
+                        <input
+                            id="weight-date"
+                            type="date"
+                            value={newDate}
+                            onChange={(e) => setNewDate(e.target.value)}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <label htmlFor="weight-value" className="sr-only">Вес</label>
+                         <input
+                            id="weight-value"
+                            type="text"
+                            inputMode="decimal"
+                            value={newWeight}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(',', '.');
+                                if (/^\d*\.?\d*$/.test(val)) {
+                                    setNewWeight(val);
+                                }
+                            }}
+                            placeholder="Введите вес, кг"
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                        />
+                        <Button onClick={handleSaveWeight} disabled={!newWeight.trim() || !newDate} className="flex-shrink-0 w-auto">
+                            Сохранить
+                        </Button>
+                    </div>
                 </div>
             </div>
 
