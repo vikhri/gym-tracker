@@ -70,7 +70,8 @@ const App: React.FC = () => {
                 batch.commit();
             } else {
                 const fetchedExercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
-                setExercises(fetchedExercises);
+                const sortedExercises = fetchedExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+                setExercises(sortedExercises);
             }
         });
 
