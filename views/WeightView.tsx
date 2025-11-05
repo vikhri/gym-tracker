@@ -3,20 +3,22 @@
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
-import { format, subDays, parseISO, isSameDay, startOfWeek, getISOWeek } from 'date-fns';
+import { format, subDays, parseISO, isSameDay, startOfWeek, endOfWeek, isWithinInterval, subWeeks } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { WeightEntry } from '../types';
 
 interface ChartDataPoint {
     label: string;
-    value: number;
+    value: number | null;
     fullDate: string;
 }
 
 const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
     const [activePoint, setActivePoint] = useState<{ x: number; y: number; value: number; label: string; fullDate: string } | null>(null);
 
-    if (data.length < 2) {
+    const values = data.map(d => d.value).filter(v => v !== null) as number[];
+
+    if (values.length < 2) {
         return <div className="text-center text-gray-500 py-10">Недостаточно данных для построения графика.</div>;
     }
 
@@ -26,7 +28,6 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
     const VIEW_BOX_WIDTH = SVG_WIDTH;
     const VIEW_BOX_HEIGHT = SVG_HEIGHT;
 
-    const values = data.map(d => d.value);
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
     const valueRange = maxValue - minValue;
@@ -40,13 +41,23 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
     
     const points = data.map((point, i) => {
         const x = PADDING + i * xStep;
+        if (point.value === null) {
+            return { x, y: null, value: null, label: point.label, fullDate: point.fullDate };
+        }
         const y = VIEW_BOX_HEIGHT - PADDING - ((point.value - yMin) / yRange) * (VIEW_BOX_HEIGHT - PADDING * 2);
         return { x, y, value: point.value, label: point.label, fullDate: point.fullDate };
     });
 
-    const path = points.map((p, i) => (i === 0 ? 'M' : 'L') + `${p.x} ${p.y}`).join(' ');
+    const path = points.reduce((pathString, p, i) => {
+        if (p.y === null) {
+            return pathString;
+        }
+        const prevPoint = i > 0 ? points[i - 1] : null;
+        const command = prevPoint && prevPoint.y !== null ? 'L' : 'M';
+        return `${pathString} ${command} ${p.x} ${p.y}`;
+    }, '');
 
-    const yAxisLabels = [yMin, minValue, maxValue, yMax].filter((v, i, a) => a.indexOf(v) === i).sort((a,b) => a - b);
+    const yAxisLabels = [yMin, minValue, maxValue, yMax].filter((v, i, a) => a.indexOf(v) === i && !isNaN(v)).sort((a,b) => a - b);
 
 
     return (
@@ -72,8 +83,7 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
             
              {/* X-axis labels */}
             {points.map((point, i) => {
-                // Show label for first, last and some in between to avoid clutter
-                 if (i === 0 || i === points.length - 1 || (points.length > 10 && i % Math.floor(points.length / 5) === 0)) {
+                 if (i === 0 || i === points.length - 1 || (points.length > 5 && i % 2 === 0 && i < points.length -1)) {
                     return (
                         <text key={i} x={point.x} y={VIEW_BOX_HEIGHT - PADDING + 15} textAnchor="middle" fontSize="10" fill="#6b7280">
                             {point.label}
@@ -88,18 +98,27 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
 
             {/* Points */}
             {points.map((point, i) => (
-                <g 
-                    key={i} 
-                    className="cursor-pointer"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setActivePoint(activePoint && activePoint.fullDate === point.fullDate ? null : point);
-                    }}
-                >
-                    <circle cx={point.x} cy={point.y} r="3" fill="#3b82f6" />
-                    <circle cx={point.x} cy={point.y} r="10" fill="transparent" />
-                    <title>{`${point.fullDate}\n${point.value} кг`}</title>
-                </g>
+                point.y !== null && point.value !== null && (
+                    <g 
+                        key={i} 
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const pointData = {
+                                x: point.x,
+                                y: point.y!,
+                                value: point.value!,
+                                label: point.label,
+                                fullDate: point.fullDate
+                            };
+                            setActivePoint(activePoint && activePoint.fullDate === point.fullDate ? null : pointData);
+                        }}
+                    >
+                        <circle cx={point.x} cy={point.y} r="3" fill="#3b82f6" />
+                        <circle cx={point.x} cy={point.y} r="10" fill="transparent" />
+                        <title>{`${point.fullDate}\n${point.value} кг`}</title>
+                    </g>
+                )
             ))}
 
             {/* Tooltip */}
@@ -160,7 +179,6 @@ const WeightView: React.FC = () => {
     const { weightEntries, addWeightEntry } = context;
     const [newWeight, setNewWeight] = useState('');
     const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
-    // FIX: Initialize chartView state to manage chart type (daily/weekly).
     const [chartView, setChartView] = useState<'daily' | 'weekly'>('daily');
 
     const todaysWeight = useMemo(() => {
@@ -190,36 +208,40 @@ const WeightView: React.FC = () => {
     };
     
     const chartData = useMemo<ChartDataPoint[]>(() => {
-        // weightEntries are pre-sorted by date from Firestore
+        const today = new Date();
         if (chartView === 'daily') {
-            return weightEntries.map(entry => ({
-                label: format(parseISO(entry.date), 'd MMM', { locale: ru }),
-                value: entry.weight,
-                fullDate: format(parseISO(entry.date), 'd MMMM yyyy', { locale: ru }),
-            }));
-        } else {
-            const weeklyData: { [key: string]: { sum: number, count: number, date: Date } } = {};
-            weightEntries.forEach(entry => {
-                const date = parseISO(entry.date);
-                const year = date.getFullYear();
-                const week = getISOWeek(date);
-                const key = `${year}-${week.toString().padStart(2, '0')}`;
-
-                if (!weeklyData[key]) {
-                    weeklyData[key] = { sum: 0, count: 0, date: startOfWeek(date, { weekStartsOn: 1 }) };
-                }
-                weeklyData[key].sum += entry.weight;
-                weeklyData[key].count++;
+            const dateArray = Array.from({ length: 10 }, (_, i) => subDays(today, 9 - i));
+            return dateArray.map(date => {
+                const entry = weightEntries.find(e => isSameDay(parseISO(e.date), date));
+                return {
+                    label: format(date, 'd MMM', { locale: ru }),
+                    value: entry ? entry.weight : null,
+                    fullDate: format(date, 'd MMMM yyyy', { locale: ru }),
+                };
             });
+        } else { // weekly
+            const thisWeekStart = startOfWeek(today, { weekStartsOn: 1 });
+            const weekStarts = Array.from({ length: 10 }, (_, i) => subWeeks(thisWeekStart, 9 - i));
 
-            return Object.keys(weeklyData)
-                .sort()
-                .map(key => weeklyData[key])
-                .map(week => ({
-                    label: format(week.date, 'd MMM', { locale: ru }),
-                    value: parseFloat((week.sum / week.count).toFixed(1)),
-                    fullDate: `Неделя с ${format(week.date, 'd MMM', { locale: ru })}`
-            }));
+            return weekStarts.map(weekStart => {
+                const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+                const entriesInWeek = weightEntries.filter(e => {
+                    const entryDate = parseISO(e.date);
+                    return isWithinInterval(entryDate, { start: weekStart, end: weekEnd });
+                });
+
+                let average: number | null = null;
+                if (entriesInWeek.length > 0) {
+                    const sum = entriesInWeek.reduce((acc, curr) => acc + curr.weight, 0);
+                    average = parseFloat((sum / entriesInWeek.length).toFixed(1));
+                }
+                
+                return {
+                    label: format(weekStart, 'd MMM', { locale: ru }),
+                    value: average,
+                    fullDate: `Неделя с ${format(weekStart, 'd MMMM yyyy', { locale: ru })}`
+                };
+            });
         }
     }, [weightEntries, chartView]);
 
