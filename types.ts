@@ -6,7 +6,7 @@ export interface Set {
 }
 
 export interface WorkoutExercise {
-  id: string;
+  id:string;
   exerciseId: string;
   sets: Set[];
 }
@@ -20,6 +20,7 @@ export interface Workout {
 export interface Exercise {
   id: string;
   name: string;
+  coefficient?: 'x1' | 'x2' | 'gravitron';
 }
 
 export interface WeightEntry {

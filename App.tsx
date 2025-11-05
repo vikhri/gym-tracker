@@ -20,6 +20,7 @@ export const AppContext = createContext<{
     deleteWorkout: (id: string) => void;
     exercises: Exercise[];
     addExercise: (exercise: Omit<Exercise, 'id'>) => void;
+    updateExercise: (exercise: Exercise) => void;
     deleteExercise: (id: string) => void;
     editWorkout: (workout: Workout | null) => void;
     weightEntries: WeightEntry[];
@@ -73,10 +74,10 @@ const App: React.FC = () => {
         const exercisesUnsub = exercisesCollection.onSnapshot(snapshot => {
             if (snapshot.empty) {
                 const defaultExercises = [
-                    { name: 'Bench Press' },
-                    { name: 'Squat' },
-                    { name: 'Deadlift' },
-                    { name: 'Overhead Press' },
+                    { name: 'Bench Press', coefficient: 'x1' },
+                    { name: 'Squat', coefficient: 'x1' },
+                    { name: 'Deadlift', coefficient: 'x1' },
+                    { name: 'Overhead Press', coefficient: 'x1' },
                 ];
                 const batch = db.batch();
                 defaultExercises.forEach(ex => {
@@ -138,6 +139,11 @@ const App: React.FC = () => {
     const addExercise = (exercise: Omit<Exercise, 'id'>) => {
         db.collection('global-exercises').add(exercise);
     }
+
+    const updateExercise = (exercise: Exercise) => {
+        const { id, ...exerciseData } = exercise;
+        db.collection('global-exercises').doc(id).set(exerciseData, { merge: true });
+    }
     
     const deleteExercise = (id: string) => {
          db.collection('global-exercises').doc(id).delete();
@@ -156,6 +162,7 @@ const App: React.FC = () => {
         deleteWorkout,
         exercises,
         addExercise,
+        updateExercise,
         deleteExercise,
         editWorkout,
         weightEntries,

@@ -1,10 +1,11 @@
+
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
 import { format } from 'date-fns';
 // FIX: The 'ru' locale should be imported from its specific module path in date-fns.
 import { ru } from 'date-fns/locale/ru';
-import { Workout, WorkoutExercise } from '../types';
+import { Workout, WorkoutExercise, WeightEntry } from '../types';
 import ChevronDownIcon from '../components/icons/ChevronDownIcon';
 import ChevronUpIcon from '../components/icons/ChevronUpIcon';
 
@@ -12,7 +13,7 @@ const HistoryView: React.FC = () => {
     const context = useContext(AppContext);
     if (!context) return null;
 
-    const { workouts, deleteWorkout: deleteWorkoutFromDB, exercises, editWorkout } = context;
+    const { workouts, deleteWorkout: deleteWorkoutFromDB, exercises, editWorkout, weightEntries } = context;
     const [visibleCount, setVisibleCount] = useState(10);
     const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
 
@@ -47,12 +48,38 @@ const HistoryView: React.FC = () => {
         setExpandedWorkoutId(expandedWorkoutId === id ? null : id);
     };
 
-    const calculateExerciseVolume = (exercise: WorkoutExercise): number => {
-        return exercise.sets.reduce((total, set) => total + (set.reps * set.weight), 0);
+    const findUserWeightForDate = (workoutDate: string): number | null => {
+        const entriesOnOrBefore = weightEntries
+            .filter(e => e.date <= workoutDate)
+            .sort((a, b) => b.date.localeCompare(a.date));
+        return entriesOnOrBefore.length > 0 ? entriesOnOrBefore[0].weight : null;
+    };
+
+    const calculateExerciseVolume = (exercise: WorkoutExercise, workoutDate: string): number => {
+        const exerciseDef = exercises.find(e => e.id === exercise.exerciseId);
+        const coefficient = exerciseDef?.coefficient || 'x1';
+
+        if (coefficient === 'gravitron') {
+            const userWeight = findUserWeightForDate(workoutDate);
+            if (userWeight !== null) {
+                return exercise.sets.reduce((total, set) => {
+                    const effectiveWeight = Math.max(0, userWeight - set.weight);
+                    return total + (set.reps * effectiveWeight);
+                }, 0);
+            }
+        }
+        
+        const baseVolume = exercise.sets.reduce((total, set) => total + (set.reps * set.weight), 0);
+
+        if (coefficient === 'x2') {
+            return baseVolume * 2;
+        }
+
+        return baseVolume; // for 'x1' or fallback for gravitron
     };
 
     const calculateWorkoutVolume = (workout: Workout): number => {
-        return workout.exercises.reduce((total, ex) => total + calculateExerciseVolume(ex), 0);
+        return workout.exercises.reduce((total, ex) => total + calculateExerciseVolume(ex, workout.date), 0);
     };
 
     const visibleWorkouts = sortedWorkouts.slice(0, visibleCount);
@@ -85,7 +112,7 @@ const HistoryView: React.FC = () => {
                                                     <div className="flex justify-between items-baseline">
                                                         <h4 className="font-semibold text-gray-700">{getExerciseName(ex.exerciseId)}</h4>
                                                         <span className="text-sm font-medium text-gray-500">
-                                                            {calculateExerciseVolume(ex).toLocaleString('ru-RU')} кг
+                                                            {calculateExerciseVolume(ex, workout.date).toLocaleString('ru-RU')} кг
                                                         </span>
                                                     </div>
                                                     <ul className="text-sm text-gray-600 list-disc list-inside pl-2">
