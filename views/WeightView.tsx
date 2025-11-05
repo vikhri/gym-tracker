@@ -216,7 +216,7 @@ const WeightView: React.FC = () => {
                 return {
                     label: format(date, 'd MMM', { locale: ru }),
                     value: entry ? entry.weight : null,
-                    fullDate: format(date, 'd MMMM yyyy', { locale: ru }),
+                    fullDate: format(date, 'dd.MM.yy', { locale: ru }),
                 };
             });
         } else { // weekly
@@ -239,7 +239,7 @@ const WeightView: React.FC = () => {
                 return {
                     label: format(weekStart, 'd MMM', { locale: ru }),
                     value: average,
-                    fullDate: `Неделя с ${format(weekStart, 'd MMMM yyyy', { locale: ru })}`
+                    fullDate: `Неделя с ${format(weekStart, 'dd.MM.yy', { locale: ru })}`
                 };
             });
         }

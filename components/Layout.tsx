@@ -7,7 +7,7 @@ import LogoutIcon from './icons/LogoutIcon';
 import { auth } from '../firebase';
 import DumbbellIcon from './icons/DumbbellIcon';
 import ClipboardListIcon from './icons/ClipboardListIcon';
-import ClockIcon from './icons/ClockIcon';
+import PlusIcon from './icons/PlusIcon';
 import ScaleIcon from './icons/ScaleIcon';
 import FloatingActionButton from './FloatingActionButton';
 
@@ -41,7 +41,7 @@ const SideMenu: React.FC<{
     setActiveTab: (tab: string) => void;
 }> = ({ isOpen, onClose, activeTab, setActiveTab }) => {
      const navItems = [
-        { id: 'workout', label: 'Тренировка', icon: ClockIcon },
+        { id: 'workout', label: 'Тренировка', icon: PlusIcon },
         { id: 'exercises', label: 'Упражнения', icon: DumbbellIcon },
         { id: 'history', label: 'История тренировок', icon: ClipboardListIcon },
         { id: 'weight', label: 'Мой вес', icon: ScaleIcon },
