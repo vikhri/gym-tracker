@@ -1,8 +1,7 @@
-
 export interface Set {
   id: string;
-  reps: number;
-  weight: number;
+  reps: number | null;
+  weight: number | null;
 }
 
 export interface WorkoutExercise {

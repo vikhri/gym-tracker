@@ -63,13 +63,13 @@ const HistoryView: React.FC = () => {
             const userWeight = findUserWeightForDate(workoutDate);
             if (userWeight !== null) {
                 return exercise.sets.reduce((total, set) => {
-                    const effectiveWeight = Math.max(0, userWeight - set.weight);
-                    return total + (set.reps * effectiveWeight);
+                    const effectiveWeight = Math.max(0, userWeight - (set.weight ?? 0));
+                    return total + ((set.reps ?? 0) * effectiveWeight);
                 }, 0);
             }
         }
         
-        const baseVolume = exercise.sets.reduce((total, set) => total + (set.reps * set.weight), 0);
+        const baseVolume = exercise.sets.reduce((total, set) => total + ((set.reps ?? 0) * (set.weight ?? 0)), 0);
 
         if (coefficient === 'x2') {
             return baseVolume * 2;
@@ -117,7 +117,7 @@ const HistoryView: React.FC = () => {
                                                     </div>
                                                     <ul className="text-sm text-gray-600 list-disc list-inside pl-2">
                                                         {ex.sets.map(set => (
-                                                            <li key={set.id}>{set.weight} кг x {set.reps} повторений</li>
+                                                            <li key={set.id}>{set.weight ?? 0} кг x {set.reps ?? 0} повторений</li>
                                                         ))}
                                                     </ul>
                                                 </div>

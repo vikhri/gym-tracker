@@ -60,7 +60,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
         setExpandedExerciseId(expandedExerciseId === id ? null : id);
     };
 
-    const updateSet = (exerciseId: string, setId: string, field: 'reps' | 'weight', value: number) => {
+    const updateSet = (exerciseId: string, setId: string, field: 'reps' | 'weight', value: number | null) => {
         const updatedExercises = currentWorkout.exercises.map((ex) => {
             if (ex.id === exerciseId) {
                 const updatedSets = ex.sets.map((set) => {
@@ -128,7 +128,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
                 <p className="font-semibold">Прошлая тренировка ({format(new Date(lastWorkout.date), 'd MMM yyyy', { locale: ru })}):</p>
                 <div className="flex flex-wrap gap-x-2">
                 {lastExercise.sets.map((s, i) => (
-                    <span key={i}>{s.weight} кг x {s.reps}</span>
+                    <span key={i}>{s.weight ?? 0} кг x {s.reps ?? 0}</span>
                 ))}
                 </div>
             </div>
@@ -180,16 +180,18 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
                                     <input
                                         type="number"
                                         min="0"
-                                        value={set.reps}
-                                        onChange={(e) => updateSet(woExercise.id, set.id, 'reps', Math.max(0, parseInt(e.target.value) || 0))}
+                                        value={set.reps ?? ''}
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => updateSet(woExercise.id, set.id, 'reps', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value) || 0))}
                                         className="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                     />
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="number"
                                             min="0"
-                                            value={set.weight}
-                                            onChange={(e) => updateSet(woExercise.id, set.id, 'weight', Math.max(0, parseInt(e.target.value) || 0))}
+                                            value={set.weight ?? ''}
+                                            onFocus={(e) => e.target.select()}
+                                            onChange={(e) => updateSet(woExercise.id, set.id, 'weight', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value) || 0))}
                                             className="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                         />
                                         {woExercise.sets.length > 1 && (
