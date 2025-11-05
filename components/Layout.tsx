@@ -4,6 +4,10 @@ import BurgerIcon from './icons/BurgerIcon';
 import XIcon from './icons/XIcon';
 import LogoutIcon from './icons/LogoutIcon';
 import { auth } from '../firebase';
+import DumbbellIcon from './icons/DumbbellIcon';
+import ClipboardListIcon from './icons/ClipboardListIcon';
+import ClockIcon from './icons/ClockIcon';
+import ScaleIcon from './icons/ScaleIcon';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -34,10 +38,10 @@ const SideMenu: React.FC<{
     setActiveTab: (tab: string) => void;
 }> = ({ isOpen, onClose, activeTab, setActiveTab }) => {
      const navItems = [
-        { id: 'workout', label: 'Тренировка' },
-        { id: 'exercises', label: 'Упражнения' },
-        { id: 'history', label: 'История тренировок' },
-        { id: 'weight', label: 'Мой вес' },
+        { id: 'workout', label: 'Тренировка', icon: DumbbellIcon },
+        { id: 'exercises', label: 'Упражнения', icon: ClipboardListIcon },
+        { id: 'history', label: 'История тренировок', icon: ClockIcon },
+        { id: 'weight', label: 'Мой вес', icon: ScaleIcon },
     ];
 
     const handleNavClick = (tabId: string) => {
@@ -74,13 +78,14 @@ const SideMenu: React.FC<{
                                  <li key={item.id}>
                                     <button
                                         onClick={() => handleNavClick(item.id)}
-                                        className={`w-full text-left p-4 text-md font-medium transition-colors duration-200 ${
+                                        className={`w-full text-left p-4 text-md font-medium transition-colors duration-200 flex items-center gap-4 ${
                                             activeTab === item.id
                                                 ? 'text-blue-600 bg-blue-50'
                                                 : 'text-gray-700 hover:bg-gray-100'
                                         }`}
                                     >
-                                        {item.label}
+                                        <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-blue-600' : 'text-gray-500'}`} />
+                                        <span>{item.label}</span>
                                     </button>
                                 </li>
                             ))}
