@@ -181,7 +181,10 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
                                         type="number"
                                         min="0"
                                         value={set.reps ?? ''}
-                                        onChange={(e) => updateSet(woExercise.id, set.id, 'reps', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value) || 0))}
+                                        onChange={(e) => {
+                                            const sanitized = e.target.value.replace(/[^0-9]/g, '');
+                                            updateSet(woExercise.id, set.id, 'reps', sanitized === '' ? null : Math.max(0, parseInt(sanitized, 10) || 0))
+                                        }}
                                         className="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                     />
                                     <div className="flex items-center gap-2">
@@ -190,7 +193,10 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
                                             min="0"
                                             step="any"
                                             value={set.weight ?? ''}
-                                            onChange={(e) => updateSet(woExercise.id, set.id, 'weight', e.target.value === '' ? null : Math.max(0, parseFloat(e.target.value) || 0))}
+                                            onChange={(e) => {
+                                                const sanitized = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
+                                                updateSet(woExercise.id, set.id, 'weight', sanitized === '' ? null : Math.max(0, parseFloat(sanitized) || 0))
+                                            }}
                                             className="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                                         />
                                         {woExercise.sets.length > 1 && (

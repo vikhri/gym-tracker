@@ -175,13 +175,17 @@ const WeightView: React.FC = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Добавить измерение</h2>
                 <div className="flex items-center gap-2">
                     <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         value={newWeight}
-                        onChange={(e) => setNewWeight(e.target.value)}
+                        onChange={(e) => {
+                            const val = e.target.value.replace(',', '.');
+                            if (/^\d*\.?\d*$/.test(val)) {
+                                setNewWeight(val);
+                            }
+                        }}
                         placeholder="Введите вес, кг"
                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
-                        step="0.1"
-                        min="0"
                     />
                     <Button onClick={handleSaveWeight} disabled={!newWeight.trim()} className="flex-shrink-0 w-auto">
                         Сохранить
