@@ -151,7 +151,18 @@ const App: React.FC = () => {
     
     const addWeightEntry = (weightEntry: Omit<WeightEntry, 'id'>) => {
         if (!user) return;
-        db.collection('users').doc(user.uid).collection('weightEntries').add(weightEntry);
+        
+        const existingEntry = weightEntries.find(entry => entry.date === weightEntry.date);
+        
+        if (existingEntry) {
+            // Update the existing entry
+            db.collection('users').doc(user.uid).collection('weightEntries').doc(existingEntry.id).update({
+                weight: weightEntry.weight
+            });
+        } else {
+            // Add a new entry
+            db.collection('users').doc(user.uid).collection('weightEntries').add(weightEntry);
+        }
     }
 
 
