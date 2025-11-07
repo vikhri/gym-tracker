@@ -9,15 +9,14 @@ import DumbbellIcon from './icons/DumbbellIcon';
 
 interface FabProps {
     setActiveTab: (tab: string) => void;
-    startNewWorkout: () => void;
 }
 
-const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkout }) => {
+const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab }) => {
     const [isOpen, setIsOpen] = useState(false);
     const node = useRef<HTMLDivElement>(null);
 
-    const handleNewWorkout = () => {
-        startNewWorkout();
+    const handleWorkout = () => {
+        setActiveTab('workout');
         setIsOpen(false);
     };
 
@@ -95,9 +94,9 @@ const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkou
                     <ClipboardListIcon className="w-7 h-7" />
                 </button>
 
-                {/* New Workout Button (Green) - 0 degrees from top (straight up) */}
+                {/* Workout Button (Green) - 0 degrees from top (straight up) */}
                 <button
-                    onClick={handleNewWorkout}
+                    onClick={handleWorkout}
                     className={`${subButtonBaseStyle} bg-green-500 hover:bg-green-600`}
                     style={{ 
                         transitionDelay: isOpen ? '0.3s' : '0s',
@@ -105,7 +104,7 @@ const FloatingActionButton: React.FC<FabProps> = ({ setActiveTab, startNewWorkou
                         opacity: isOpen ? 1 : 0,
                         pointerEvents: isOpen ? 'auto' : 'none'
                     }}
-                    aria-label="Новая тренировка"
+                    aria-label="Тренировка"
                     tabIndex={isOpen ? 0 : -1}
                 >
                     <PlusIcon className="w-7 h-7" />

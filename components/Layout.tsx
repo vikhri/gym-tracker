@@ -15,7 +15,6 @@ interface LayoutProps {
     children: React.ReactNode;
     activeTab: string;
     setActiveTab: (tab: string) => void;
-    startNewWorkout: () => void;
 }
 
 const Header: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
@@ -110,7 +109,7 @@ const SideMenu: React.FC<{
 }
 
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, startNewWorkout }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     return (
@@ -126,7 +125,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, star
             <main className="flex-grow p-4 pt-20 pb-24">
                 {children}
             </main>
-            <FloatingActionButton setActiveTab={setActiveTab} startNewWorkout={startNewWorkout} />
+            <FloatingActionButton setActiveTab={setActiveTab} />
         </div>
     );
 };
