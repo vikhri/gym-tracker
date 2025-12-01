@@ -155,13 +155,11 @@ const App: React.FC = () => {
         const existingEntry = weightEntries.find(entry => entry.date === weightEntry.date);
         
         if (existingEntry) {
-            // Update the existing entry
-            db.collection('users').doc(user.uid).collection('weightEntries').doc(existingEntry.id).update({
-                weight: weightEntry.weight
-            });
+            // Update the existing entry using its specific ID
+            db.collection('users').doc(user.uid).collection('weightEntries').doc(existingEntry.id).set(weightEntry);
         } else {
-            // Add a new entry
-            db.collection('users').doc(user.uid).collection('weightEntries').add(weightEntry);
+            // Add a new entry using the date as the ID to ensure uniqueness and idempotency
+            db.collection('users').doc(user.uid).collection('weightEntries').doc(weightEntry.date).set(weightEntry);
         }
     }
 

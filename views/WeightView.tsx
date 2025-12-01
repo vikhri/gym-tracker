@@ -1,10 +1,9 @@
 
-
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
 import { format, subDays, parseISO, isSameDay, startOfWeek, endOfWeek, isWithinInterval, subWeeks } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { ru } from 'date-fns/locale/ru';
 import { WeightEntry } from '../types';
 
 interface ChartDataPoint {
@@ -18,8 +17,8 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
 
     const values = data.map(d => d.value).filter(v => v !== null) as number[];
 
-    if (values.length < 2) {
-        return <div className="text-center text-gray-500 py-10">Недостаточно данных для построения графика.</div>;
+    if (values.length === 0) {
+        return <div className="text-center text-gray-500 py-10">Нет данных для построения графика.</div>;
     }
 
     const PADDING = 40;
@@ -33,8 +32,15 @@ const WeightChart: React.FC<{ data: ChartDataPoint[] }> = ({ data }) => {
     const valueRange = maxValue - minValue;
 
     // Add some buffer to min/max for better visualization
-    const yMin = Math.floor(minValue - valueRange * 0.1);
-    const yMax = Math.ceil(maxValue + valueRange * 0.1);
+    let yMin = Math.floor(minValue - valueRange * 0.1);
+    let yMax = Math.ceil(maxValue + valueRange * 0.1);
+    
+    // Ensure we have a valid range even for a single value or constant values
+    if (yMin === yMax) {
+        yMin -= 1;
+        yMax += 1;
+    }
+    
     const yRange = yMax - yMin;
 
     const xStep = (VIEW_BOX_WIDTH - PADDING * 2) / (data.length - 1);
@@ -178,7 +184,8 @@ const WeightView: React.FC = () => {
 
     const { weightEntries, addWeightEntry } = context;
     const [newWeight, setNewWeight] = useState('');
-    const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+    // Use local date format for the default value to avoid UTC "yesterday" issues
+    const [newDate, setNewDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [chartView, setChartView] = useState<'daily' | 'weekly'>('daily');
 
     const todaysWeight = useMemo(() => {
