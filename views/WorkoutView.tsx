@@ -20,7 +20,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
     const context = useContext(AppContext);
     if (!context) return null;
 
-    const { workouts, addWorkout, updateWorkout, exercises } = context;
+    const { workouts, addWorkout, updateWorkout, exercises, showToast } = context;
 
     const createNewWorkout = (): Omit<Workout, 'id'> => ({
         date: new Date().toISOString().split('T')[0],
@@ -105,6 +105,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
         }
         setCurrentWorkout(createNewWorkout());
         setExpandedExerciseId(null);
+        showToast("Тренировка сохранена");
     };
     
     const getExerciseName = (id: string) => exercises.find(e => e.id === id)?.name || 'Unknown Exercise';

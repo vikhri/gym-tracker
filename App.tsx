@@ -12,6 +12,7 @@ import HistoryView from './views/HistoryView';
 import LoginView from './views/LoginView';
 import useLocalStorage from './hooks/useLocalStorage';
 import WeightView from './views/WeightView';
+import Toast from './components/Toast';
 
 export const AppContext = createContext<{
     workouts: Workout[];
@@ -25,6 +26,7 @@ export const AppContext = createContext<{
     editWorkout: (workout: Workout | null) => void;
     weightEntries: WeightEntry[];
     addWeightEntry: (weightEntry: Omit<WeightEntry, 'id'>) => void;
+    showToast: (message: string) => void;
 } | null>(null);
 
 
@@ -55,6 +57,7 @@ const App: React.FC = () => {
     const [workouts, setWorkouts] = useState<Workout[]>([]);
     const [exercises, setExercises] = useState<Exercise[]>([]);
     const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [currentWorkout, setCurrentWorkout] = useLocalStorage<Workout | Omit<Workout, 'id'>>(
         'currentWorkout',
         createNewWorkout()
@@ -117,6 +120,13 @@ const App: React.FC = () => {
         }
         setActiveTab('workout');
     };
+
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        setTimeout(() => {
+            setToastMessage(null);
+        }, 2000);
+    };
     
     // --- Firestore Functions ---
     
@@ -175,7 +185,8 @@ const App: React.FC = () => {
         deleteExercise,
         editWorkout,
         weightEntries,
-        addWeightEntry
+        addWeightEntry,
+        showToast
     }), [workouts, exercises, user, weightEntries]);
 
     const renderContent = () => {
@@ -210,6 +221,7 @@ const App: React.FC = () => {
             <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
                 {renderContent()}
             </Layout>
+            <Toast message={toastMessage} />
         </AppContext.Provider>
     );
 };
