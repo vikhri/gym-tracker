@@ -1,3 +1,4 @@
+
 export interface Set {
   id: string;
   reps: number | null;
@@ -8,6 +9,7 @@ export interface WorkoutExercise {
   id:string;
   exerciseId: string;
   sets: Set[];
+  weightUnit?: 'kg' | 'lb';
 }
 
 export interface Workout {

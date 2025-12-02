@@ -11,6 +11,8 @@ import ChevronUpIcon from '../components/icons/ChevronUpIcon';
 import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 
+const KG_TO_LB = 2.20462;
+
 const HistoryView: React.FC = () => {
     const context = useContext(AppContext);
     if (!context) return null;
@@ -60,18 +62,25 @@ const HistoryView: React.FC = () => {
     const calculateExerciseVolume = (exercise: WorkoutExercise, workoutDate: string): number => {
         const exerciseDef = exercises.find(e => e.id === exercise.exerciseId);
         const coefficient = exerciseDef?.coefficient || 'x1';
+        
+        // Convert sets to KG for calculation
+        const setsInKg = exercise.sets.map(set => {
+            const w = set.weight ?? 0;
+            return exercise.weightUnit === 'lb' ? w / KG_TO_LB : w;
+        });
 
         if (coefficient === 'gravitron') {
             const userWeight = findUserWeightForDate(workoutDate);
             if (userWeight !== null) {
-                return exercise.sets.reduce((total, set) => {
-                    const effectiveWeight = Math.max(0, userWeight - (set.weight ?? 0));
+                return exercise.sets.reduce((total, set, i) => {
+                    const weight = setsInKg[i];
+                    const effectiveWeight = Math.max(0, userWeight - weight);
                     return total + ((set.reps ?? 0) * effectiveWeight);
                 }, 0);
             }
         }
         
-        const baseVolume = exercise.sets.reduce((total, set) => total + ((set.reps ?? 0) * (set.weight ?? 0)), 0);
+        const baseVolume = exercise.sets.reduce((total, set, i) => total + ((set.reps ?? 0) * setsInKg[i]), 0);
 
         if (coefficient === 'x2') {
             return baseVolume * 2;
@@ -103,7 +112,7 @@ const HistoryView: React.FC = () => {
                                     <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExpand(workout.id)}>
                                         <div className="pr-4">
                                             <p className="font-semibold text-gray-800">{format(new Date(workout.date), 'd MMMM, EEEE', { locale: ru })}</p>
-                                            <p className="text-sm text-gray-500">{workout.exercises.length} упр. • Общий тоннаж: {calculateWorkoutVolume(workout).toLocaleString('ru-RU')} кг</p>
+                                            <p className="text-sm text-gray-500">{workout.exercises.length} упр. • Общий тоннаж: {Math.round(calculateWorkoutVolume(workout)).toLocaleString('ru-RU')} кг</p>
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
                                             <button
@@ -136,13 +145,23 @@ const HistoryView: React.FC = () => {
                                                     <div className="flex justify-between items-baseline">
                                                         <h4 className="font-semibold text-gray-700">{getExerciseName(ex.exerciseId)}</h4>
                                                         <span className="text-sm font-medium text-gray-500">
-                                                            {calculateExerciseVolume(ex, workout.date).toLocaleString('ru-RU')} кг
+                                                            {Math.round(calculateExerciseVolume(ex, workout.date)).toLocaleString('ru-RU')} кг
                                                         </span>
                                                     </div>
                                                     <ul className="text-sm text-gray-600 list-disc list-inside pl-2">
-                                                        {ex.sets.map(set => (
-                                                            <li key={set.id}>{set.weight ?? 0} кг x {set.reps ?? 0} повторений</li>
-                                                        ))}
+                                                        {ex.sets.map(set => {
+                                                            const isLb = ex.weightUnit === 'lb';
+                                                            const weight = set.weight ?? 0;
+                                                            const display = isLb 
+                                                                ? `${weight} lbs (${parseFloat((weight/KG_TO_LB).toFixed(1))} кг)` 
+                                                                : `${weight} кг`;
+                                                            
+                                                            return (
+                                                                <li key={set.id}>
+                                                                    {set.reps ?? 0} x {display}
+                                                                </li>
+                                                            );
+                                                        })}
                                                     </ul>
                                                 </div>
                                             ))}
