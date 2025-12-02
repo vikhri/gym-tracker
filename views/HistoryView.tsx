@@ -1,5 +1,4 @@
 
-
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
@@ -10,6 +9,7 @@ import { Workout, WorkoutExercise, WeightEntry } from '../types';
 import ChevronDownIcon from '../components/icons/ChevronDownIcon';
 import ChevronUpIcon from '../components/icons/ChevronUpIcon';
 import PencilIcon from '../components/icons/PencilIcon';
+import TrashIcon from '../components/icons/TrashIcon';
 
 const HistoryView: React.FC = () => {
     const context = useContext(AppContext);
@@ -115,6 +115,16 @@ const HistoryView: React.FC = () => {
                                                 aria-label={`Редактировать тренировку от ${format(new Date(workout.date), 'd MMMM', { locale: ru })}`}
                                             >
                                                 <PencilIcon className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteWorkout(workout.id);
+                                                }}
+                                                className="text-red-500 hover:text-red-700 p-1"
+                                                aria-label={`Удалить тренировку от ${format(new Date(workout.date), 'd MMMM', { locale: ru })}`}
+                                            >
+                                                <TrashIcon className="w-5 h-5" />
                                             </button>
                                             {expandedWorkoutId === workout.id ? <ChevronUpIcon className="text-gray-500" /> : <ChevronDownIcon className="text-gray-500" />}
                                         </div>
