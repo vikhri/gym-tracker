@@ -1,3 +1,4 @@
+
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Workout, Exercise } from '../types';
 
@@ -16,6 +17,7 @@ interface GymDB extends DBSchema {
     workouts: {
         key: string;
         value: Workout & { createdAt: number };
+        indexes: { 'by-date': string };
     };
     syncQueue: {
         key: string;
@@ -24,22 +26,26 @@ interface GymDB extends DBSchema {
 }
 
 const DB_NAME = 'gym-tracker-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped version to add index
 
 let dbPromise: Promise<IDBPDatabase<GymDB>> | null = null;
 
 export async function getDb(): Promise<IDBPDatabase<GymDB>> {
     if (!dbPromise) {
         dbPromise = openDB<GymDB>(DB_NAME, DB_VERSION, {
-            upgrade(db) {
-                if (!db.objectStoreNames.contains('exercises')) {
+            upgrade(db, oldVersion) {
+                if (oldVersion < 1) {
                     db.createObjectStore('exercises', { keyPath: 'id' });
-                }
-                if (!db.objectStoreNames.contains('workouts')) {
-                    db.createObjectStore('workouts', { keyPath: 'id' });
-                }
-                if (!db.objectStoreNames.contains('syncQueue')) {
+                    const workoutStore = db.createObjectStore('workouts', { keyPath: 'id' });
+                    workoutStore.createIndex('by-date', 'date');
                     db.createObjectStore('syncQueue', { keyPath: 'id' });
+                }
+                if (oldVersion === 1) {
+                    // Migration from 1 to 2: Add index to workouts if it doesn't exist
+                    const workoutStore = db.transaction('workouts', 'readwrite').objectStore('workouts');
+                    if (!workoutStore.indexNames.contains('by-date')) {
+                        workoutStore.createIndex('by-date', 'date');
+                    }
                 }
             },
         });
@@ -49,7 +55,7 @@ export async function getDb(): Promise<IDBPDatabase<GymDB>> {
 
 export async function saveExerciseOffline(exercise: Exercise) {
     const db = await getDb();
-    await db.put('exercises', { ...exercise, updatedAt: Date.now() });
+    await db.put('exercises', { ...exercise, updatedAt: exercise.updatedAt || Date.now() });
 }
 
 export async function saveWorkoutOffline(workout: Workout) {
@@ -62,10 +68,19 @@ export async function getOfflineExercises() {
     return db.getAll('exercises');
 }
 
-export async function getOfflineWorkouts() {
+export async function getOfflineWorkouts(limit?: number) {
     const db = await getDb();
-    const workouts = await db.getAll('workouts');
-    return workouts.sort((a, b) => b.date.localeCompare(a.date));
+    if (limit) {
+        // Use index to get most recent
+        const workouts: (Workout & { createdAt: number })[] = [];
+        let cursor = await db.transaction('workouts').store.index('by-date').openCursor(null, 'prev');
+        while (cursor && workouts.length < limit) {
+            workouts.push(cursor.value);
+            cursor = await cursor.continue();
+        }
+        return workouts;
+    }
+    return db.getAllFromIndex('workouts', 'by-date');
 }
 
 export async function addToSyncQueue(item: Omit<SyncItem, 'id' | 'createdAt'>) {

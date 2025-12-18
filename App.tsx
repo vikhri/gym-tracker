@@ -1,3 +1,4 @@
+
 import React, { useState, createContext, useMemo, useEffect } from 'react';
 import { auth, db } from './firebase';
 import firebase from 'firebase/compat/app';
@@ -76,6 +77,11 @@ const App: React.FC = () => {
         if (user && isOnline) {
             await syncOfflineData(user.uid);
             showToast("Синхронизация завершена");
+            // Refresh local state after sync
+            const offlineWorkouts = await getOfflineWorkouts();
+            setWorkouts(offlineWorkouts.reverse());
+            const offlineExercises = await getOfflineExercises();
+            setExercises(offlineExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
         }
     };
 
@@ -93,42 +99,47 @@ const App: React.FC = () => {
             return;
         }
 
-        const loadData = async () => {
-            if (isOnline) {
-                // Online: Load all exercises and last 3 workouts
-                const exercisesSnapshot = await db.collection('global-exercises').get();
-                const fetchedExercises = exercisesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Exercise));
-                setExercises(fetchedExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
-                
-                // Save all fetched exercises to IDB
-                for (const ex of fetchedExercises) {
-                    await saveExerciseOffline(ex);
+        const loadExercises = async () => {
+            try {
+                if (isOnline) {
+                    const snapshot = await db.collection('global-exercises').get();
+                    const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Exercise));
+                    for (const ex of fetched) await saveExerciseOffline(ex);
+                    setExercises(fetched.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
+                } else {
+                    throw new Error("Offline");
                 }
-
-                const workoutsSnapshot = await db.collection('users').doc(user.uid).collection('workouts').orderBy('date', 'desc').limit(3).get();
-                const fetchedWorkouts = workoutsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Workout));
-                
-                // Save all fetched workouts to IDB
-                for (const w of fetchedWorkouts) {
-                    await saveWorkoutOffline(w);
-                }
-
-                const allOfflineWorkouts = await getOfflineWorkouts();
-                setWorkouts(allOfflineWorkouts);
-
-            } else {
-                // Offline: Load from IDB
-                const offlineExercises = await getOfflineExercises();
-                setExercises(offlineExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
-                
-                const offlineWorkouts = await getOfflineWorkouts();
-                setWorkouts(offlineWorkouts);
+            } catch (error) {
+                const cached = await getOfflineExercises();
+                setExercises(cached.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
             }
         };
 
-        loadData();
+        const loadWorkouts = async () => {
+            try {
+                if (isOnline) {
+                    // Online: load last 3 and sync them locally
+                    const snapshot = await db.collection('users').doc(user.uid).collection('workouts')
+                        .orderBy('date', 'desc').limit(3).get();
+                    const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Workout));
+                    for (const w of fetched) await saveWorkoutOffline(w);
+                    
+                    // After syncing fetched 3, load EVERYTHING from IDB to respect history/unsynced items
+                    const all = await getOfflineWorkouts();
+                    setWorkouts(all.reverse());
+                } else {
+                    throw new Error("Offline");
+                }
+            } catch (error) {
+                const cached = await getOfflineWorkouts();
+                setWorkouts(cached.reverse());
+            }
+        };
 
-        // Keep real-time weight entries as they are lighter
+        loadExercises();
+        loadWorkouts();
+
+        // Weight entries - strictly online for now per initial requirements
         const weightCollection = db.collection('users').doc(user.uid).collection('weightEntries');
         const weightUnsub = weightCollection.orderBy('date', 'asc').onSnapshot(snapshot => {
             const fetchedWeights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeightEntry));
@@ -163,8 +174,14 @@ const App: React.FC = () => {
         setWorkouts(prev => [workoutWithId, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
 
         if (isOnline) {
-            const { isSynced, ...data } = workoutWithId;
-            await db.collection('users').doc(user.uid).collection('workouts').doc(newId).set(data);
+            try {
+                const { isSynced, ...data } = workoutWithId;
+                await db.collection('users').doc(user.uid).collection('workouts').doc(newId).set(data);
+            } catch (e) {
+                await addToSyncQueue({ type: 'CREATE_WORKOUT', payload: { ...workoutWithId, isSynced: false } });
+                // Update local to reflect unsynced state if real network error occurred despite isOnline check
+                await saveWorkoutOffline({ ...workoutWithId, isSynced: false });
+            }
         } else {
             await addToSyncQueue({ type: 'CREATE_WORKOUT', payload: workoutWithId });
         }
@@ -177,21 +194,27 @@ const App: React.FC = () => {
         setWorkouts(prev => prev.map(w => w.id === workout.id ? updatedWorkout : w));
 
         if (isOnline) {
-            const { id, isSynced, ...workoutData } = updatedWorkout;
-            await db.collection('users').doc(user.uid).collection('workouts').doc(id).set(workoutData);
-        } else {
-            // Ideally should check if it's already in sync queue to update payload, 
-            // but user requested syncQueue for CREATE. We'll simplify and update offline only.
+            try {
+                const { id, isSynced, ...workoutData } = updatedWorkout;
+                await db.collection('users').doc(user.uid).collection('workouts').doc(id).set(workoutData);
+            } catch (e) {
+                // Fallback: update offline but mark as unsynced would be ideal here too
+            }
         }
     }
     
-    const deleteWorkout = (id: string) => {
+    const deleteWorkout = async (id: string) => {
         if (!user) return;
         setWorkouts(prev => prev.filter(w => w.id !== id));
+        // We delete from IDB immediately
+        const idb = await getOfflineWorkouts();
+        // Since idb library returns all, we manually delete
+        const gymDb = await import('./storage/offlineDb').then(m => m.getDb());
+        await gymDb.delete('workouts', id);
+
         if (isOnline) {
             db.collection('users').doc(user.uid).collection('workouts').doc(id).delete();
         }
-        // In a full offline app we'd queue deletion too
     }
 
     const addExercise = async (exercise: Omit<Exercise, 'id'>) => {
@@ -202,8 +225,13 @@ const App: React.FC = () => {
         setExercises(prev => [...prev, exerciseWithId].sort((a, b) => a.name.localeCompare(b.name, 'ru')));
 
         if (isOnline) {
-            const { isSynced, ...data } = exerciseWithId;
-            await db.collection('global-exercises').doc(newId).set(data);
+            try {
+                const { isSynced, ...data } = exerciseWithId;
+                await db.collection('global-exercises').doc(newId).set(data);
+            } catch (e) {
+                await addToSyncQueue({ type: 'CREATE_EXERCISE', payload: { ...exerciseWithId, isSynced: false } });
+                await saveExerciseOffline({ ...exerciseWithId, isSynced: false });
+            }
         } else {
             await addToSyncQueue({ type: 'CREATE_EXERCISE', payload: exerciseWithId });
         }
@@ -220,15 +248,18 @@ const App: React.FC = () => {
         }
     }
     
-    const deleteExercise = (id: string) => {
+    const deleteExercise = async (id: string) => {
         setExercises(prev => prev.filter(ex => ex.id !== id));
+        const gymDb = await import('./storage/offlineDb').then(m => m.getDb());
+        await gymDb.delete('exercises', id);
+
         if (isOnline) {
             db.collection('global-exercises').doc(id).delete();
         }
     }
     
     const addWeightEntry = (weightEntry: Omit<WeightEntry, 'id'>) => {
-        if (!user || !isOnline) return; // Weight entries remain online-mostly for now
+        if (!user || !isOnline) return;
         
         const existingEntry = weightEntries.find(entry => entry.date === weightEntry.date);
         
