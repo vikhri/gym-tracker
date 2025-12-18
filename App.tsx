@@ -1,8 +1,6 @@
 
-import React, { useState, createContext, useMemo, useEffect } from 'react';
+import React, { useState, createContext, useMemo, useEffect, useCallback } from 'react';
 import { auth, db } from './firebase';
-// FIX: The User type is not a named export from 'firebase/compat/app'.
-// It is available on the default-exported firebase namespace.
 import firebase from 'firebase/compat/app';
 import { Workout, Exercise, WeightEntry } from './types';
 import Layout from './components/Layout';
@@ -27,6 +25,10 @@ export const AppContext = createContext<{
     weightEntries: WeightEntry[];
     addWeightEntry: (weightEntry: Omit<WeightEntry, 'id'>) => void;
     showToast: (message: string) => void;
+    syncData: () => Promise<void>;
+    hasPendingSync: boolean;
+    isSyncing: boolean;
+    syncSuccess: boolean;
 } | null>(null);
 
 
@@ -58,37 +60,40 @@ const App: React.FC = () => {
     const [exercises, setExercises] = useState<Exercise[]>([]);
     const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncSuccess, setSyncSuccess] = useState(false);
+    
+    // Offline Caches
+    const [cachedWorkouts, setCachedWorkouts] = useLocalStorage<Workout[]>('cachedWorkouts', []);
+    const [cachedExercises, setCachedExercises] = useLocalStorage<Exercise[]>('cachedExercises', []);
+    
+    // Pending Changes for manual sync
+    const [pendingWorkouts, setPendingWorkouts] = useLocalStorage<Omit<Workout, 'id'>[]>('pendingWorkouts', []);
+    const [pendingExercises, setPendingExercises] = useLocalStorage<Omit<Exercise, 'id'>[]>('pendingExercises', []);
+    const [pendingWeights, setPendingWeights] = useLocalStorage<Omit<WeightEntry, 'id'>[]>('pendingWeights', []);
+
     const [currentWorkout, setCurrentWorkout] = useLocalStorage<Workout | Omit<Workout, 'id'>>(
         'currentWorkout',
         createNewWorkout()
     );
 
-
+    // Initial load from Firestore OR local cache if offline
     useEffect(() => {
         if (!user) {
             setWorkouts([]);
             setExercises([]);
             setWeightEntries([]);
-            setCurrentWorkout(createNewWorkout());
             return;
         }
 
+        // Use cached data immediately for a fast offline-first feel
+        setExercises(cachedExercises);
+        setWorkouts(cachedWorkouts);
+
+        // Subscriptions to live data
         const exercisesCollection = db.collection('global-exercises');
         const exercisesUnsub = exercisesCollection.onSnapshot(snapshot => {
-            if (snapshot.empty) {
-                const defaultExercises = [
-                    { name: 'Bench Press', coefficient: 'x1' },
-                    { name: 'Squat', coefficient: 'x1' },
-                    { name: 'Deadlift', coefficient: 'x1' },
-                    { name: 'Overhead Press', coefficient: 'x1' },
-                ];
-                const batch = db.batch();
-                defaultExercises.forEach(ex => {
-                    const docRef = exercisesCollection.doc();
-                    batch.set(docRef, ex);
-                });
-                batch.commit();
-            } else {
+            if (!snapshot.empty) {
                 const fetchedExercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
                 const sortedExercises = fetchedExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
                 setExercises(sortedExercises);
@@ -112,7 +117,63 @@ const App: React.FC = () => {
             workoutsUnsub();
             weightUnsub();
         };
-    }, [user, setCurrentWorkout]);
+    }, [user]);
+
+    const syncData = useCallback(async () => {
+        if (!user) return;
+        setIsSyncing(true);
+        setSyncSuccess(false);
+        try {
+            // 1. Push pending changes to Firestore
+            if (pendingWorkouts.length > 0) {
+                const batch = db.batch();
+                pendingWorkouts.forEach(w => {
+                    const docRef = db.collection('users').doc(user.uid).collection('workouts').doc();
+                    batch.set(docRef, w);
+                });
+                await batch.commit();
+                setPendingWorkouts([]);
+            }
+
+            if (pendingExercises.length > 0) {
+                const batch = db.batch();
+                pendingExercises.forEach(e => {
+                    const docRef = db.collection('global-exercises').doc();
+                    batch.set(docRef, e);
+                });
+                await batch.commit();
+                setPendingExercises([]);
+            }
+
+            if (pendingWeights.length > 0) {
+                const batch = db.batch();
+                pendingWeights.forEach(w => {
+                    // Use date as ID to avoid duplicates on sync
+                    const docRef = db.collection('users').doc(user.uid).collection('weightEntries').doc(w.date);
+                    batch.set(docRef, w);
+                });
+                await batch.commit();
+                setPendingWeights([]);
+            }
+
+            // 2. Fetch and Update local cache
+            const exSnap = await db.collection('global-exercises').get();
+            const allEx = exSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
+            setCachedExercises(allEx.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
+
+            const woSnap = await db.collection('users').doc(user.uid).collection('workouts').orderBy('date', 'desc').limit(3).get();
+            const top3Wo = woSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout));
+            setCachedWorkouts(top3Wo);
+
+            setSyncSuccess(true);
+            setTimeout(() => setSyncSuccess(false), 3000);
+        } catch (error) {
+            console.error("Sync error:", error);
+            showToast("Ошибка синхронизации");
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [user, pendingWorkouts, pendingExercises, pendingWeights, setCachedExercises, setCachedWorkouts, setPendingWorkouts, setPendingExercises, setPendingWeights]);
 
     const editWorkout = (workout: Workout | null) => {
         if (workout) {
@@ -128,11 +189,20 @@ const App: React.FC = () => {
         }, 2000);
     };
     
-    // --- Firestore Functions ---
+    // --- Data Handlers (Enhanced for Offline) ---
     
     const addWorkout = (workout: Omit<Workout, 'id'>) => {
-        if (!user) return;
-        db.collection('users').doc(user.uid).collection('workouts').add(workout);
+        // Optimistic UI update
+        const tempWorkout = { ...workout, id: 'temp-' + Date.now() } as Workout;
+        setWorkouts(prev => [tempWorkout, ...prev]);
+        
+        // Save to pending and try background sync if online
+        setPendingWorkouts(prev => [...prev, workout]);
+        
+        if (navigator.onLine && user) {
+            db.collection('users').doc(user.uid).collection('workouts').add(workout)
+                .then(() => setPendingWorkouts(prev => prev.filter(w => w !== workout)));
+        }
     }
     
     const updateWorkout = (workout: Workout) => {
@@ -147,7 +217,11 @@ const App: React.FC = () => {
     }
 
     const addExercise = (exercise: Omit<Exercise, 'id'>) => {
-        db.collection('global-exercises').add(exercise);
+        setPendingExercises(prev => [...prev, exercise]);
+        if (navigator.onLine) {
+            db.collection('global-exercises').add(exercise)
+                .then(() => setPendingExercises(prev => prev.filter(e => e !== exercise)));
+        }
     }
 
     const updateExercise = (exercise: Exercise) => {
@@ -160,19 +234,16 @@ const App: React.FC = () => {
     }
     
     const addWeightEntry = (weightEntry: Omit<WeightEntry, 'id'>) => {
-        if (!user) return;
-        
-        const existingEntry = weightEntries.find(entry => entry.date === weightEntry.date);
-        
-        if (existingEntry) {
-            // Update the existing entry using its specific ID
-            db.collection('users').doc(user.uid).collection('weightEntries').doc(existingEntry.id).set(weightEntry);
-        } else {
-            // Add a new entry using the date as the ID to ensure uniqueness and idempotency
-            db.collection('users').doc(user.uid).collection('weightEntries').doc(weightEntry.date).set(weightEntry);
+        setPendingWeights(prev => [...prev, weightEntry]);
+        if (navigator.onLine && user) {
+            db.collection('users').doc(user.uid).collection('weightEntries').doc(weightEntry.date).set(weightEntry)
+                .then(() => setPendingWeights(prev => prev.filter(w => w !== weightEntry)));
         }
     }
 
+    const hasPendingSync = useMemo(() => {
+        return pendingWorkouts.length > 0 || pendingExercises.length > 0 || pendingWeights.length > 0;
+    }, [pendingWorkouts, pendingExercises, pendingWeights]);
 
     const contextValue = useMemo(() => ({
         workouts,
@@ -186,8 +257,12 @@ const App: React.FC = () => {
         editWorkout,
         weightEntries,
         addWeightEntry,
-        showToast
-    }), [workouts, exercises, user, weightEntries]);
+        showToast,
+        syncData,
+        hasPendingSync,
+        isSyncing,
+        syncSuccess
+    }), [workouts, exercises, user, weightEntries, hasPendingSync, isSyncing, syncSuccess, syncData]);
 
     const renderContent = () => {
         switch (activeTab) {
