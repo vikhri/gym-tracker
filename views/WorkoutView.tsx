@@ -67,8 +67,7 @@ const WorkoutView: React.FC<WorkoutViewProps> = ({ currentWorkout, setCurrentWor
         const updatedExercises = currentWorkout.exercises.map((ex) => {
             if (ex.id === exerciseId) {
                 const isLb = ex.weightUnit === 'lb';
-                // FIX: Explicitly type newUnit to match WorkoutExercise.weightUnit ('kg' | 'lb') to avoid 'string' widening error.
-                const newUnit: 'kg' | 'lb' = isLb ? 'kg' : 'lb';
+                const newUnit = isLb ? 'kg' : 'lb';
                 const newSets = ex.sets.map(set => {
                     if (set.weight === null || set.weight === 0) return set;
                     const newWeight = isLb 

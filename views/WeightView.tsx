@@ -2,8 +2,7 @@
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
-// FIX: Removed parseISO from imports as it was reported as missing. Using new Date() instead.
-import { format, subDays, isSameDay, startOfWeek, endOfWeek, isWithinInterval, subWeeks } from 'date-fns';
+import { format, subDays, parseISO, isSameDay, startOfWeek, endOfWeek, isWithinInterval, subWeeks } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { WeightEntry } from '../types';
 
@@ -191,8 +190,7 @@ const WeightView: React.FC = () => {
 
     const todaysWeight = useMemo(() => {
         const today = new Date();
-        // FIX: Using new Date() instead of parseISO
-        const entry = weightEntries.find(e => isSameDay(new Date(e.date), today));
+        const entry = weightEntries.find(e => isSameDay(parseISO(e.date), today));
         return entry ? entry.weight : null;
     }, [weightEntries]);
 
@@ -200,8 +198,7 @@ const WeightView: React.FC = () => {
         const today = new Date();
         const sevenDaysAgo = subDays(today, 6);
         const recentEntries = weightEntries.filter(e => {
-            // FIX: Using new Date() instead of parseISO
-            const entryDate = new Date(e.date);
+            const entryDate = parseISO(e.date);
             return entryDate >= sevenDaysAgo && entryDate <= today;
         });
         if (recentEntries.length === 0) return null;
@@ -222,8 +219,7 @@ const WeightView: React.FC = () => {
         if (chartView === 'daily') {
             const dateArray = Array.from({ length: 10 }, (_, i) => subDays(today, 9 - i));
             return dateArray.map(date => {
-                // FIX: Using new Date() instead of parseISO
-                const entry = weightEntries.find(e => isSameDay(new Date(e.date), date));
+                const entry = weightEntries.find(e => isSameDay(parseISO(e.date), date));
                 return {
                     label: format(date, 'd MMM', { locale: ru }),
                     value: entry ? entry.weight : null,
@@ -237,8 +233,7 @@ const WeightView: React.FC = () => {
             return weekStarts.map(weekStart => {
                 const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
                 const entriesInWeek = weightEntries.filter(e => {
-                    // FIX: Using new Date() instead of parseISO
-                    const entryDate = new Date(e.date);
+                    const entryDate = parseISO(e.date);
                     return isWithinInterval(entryDate, { start: weekStart, end: weekEnd });
                 });
 
