@@ -1,9 +1,7 @@
-
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
 import { format } from 'date-fns';
-// FIX: The 'ru' locale should be imported from its specific module path in date-fns.
 import { ru } from 'date-fns/locale/ru';
 import { Workout, WorkoutExercise, WeightEntry } from '../types';
 import ChevronDownIcon from '../components/icons/ChevronDownIcon';
@@ -21,36 +19,17 @@ const HistoryView: React.FC = () => {
     const [visibleCount, setVisibleCount] = useState(10);
     const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
 
-    // Workouts are sorted by date from the App context state
-    const sortedWorkouts = workouts;
-
     const groupedWorkouts = useMemo(() => {
-        return sortedWorkouts.reduce((acc, workout) => {
+        return workouts.reduce((acc, workout) => {
             const date = new Date(workout.date);
             const monthYear = format(date, 'LLLL yyyy', { locale: ru });
-            if (!acc[monthYear]) {
-                acc[monthYear] = [];
-            }
+            if (!acc[monthYear]) acc[monthYear] = [];
             acc[monthYear].push(workout);
             return acc;
         }, {} as Record<string, Workout[]>);
-    }, [sortedWorkouts]);
+    }, [workouts]);
 
     const getExerciseName = (id: string) => exercises.find(e => e.id === id)?.name || 'Unknown Exercise';
-
-    const handleDeleteWorkout = (id: string) => {
-        if (window.confirm('Вы уверены, что хотите удалить эту тренировку?')) {
-            deleteWorkoutFromDB(id);
-        }
-    };
-    
-    const handleEdit = (workout: Workout) => {
-        editWorkout(workout);
-    };
-
-    const toggleExpand = (id: string) => {
-        setExpandedWorkoutId(expandedWorkoutId === id ? null : id);
-    };
 
     const findUserWeightForDate = (workoutDate: string): number | null => {
         const entriesOnOrBefore = weightEntries
@@ -62,45 +41,31 @@ const HistoryView: React.FC = () => {
     const calculateExerciseVolume = (exercise: WorkoutExercise, workoutDate: string): number => {
         const exerciseDef = exercises.find(e => e.id === exercise.exerciseId);
         const coefficient = exerciseDef?.coefficient || 'x1';
+        const setsInKg = exercise.sets.map(set => (exercise.weightUnit === 'lb' ? (set.weight ?? 0) / KG_TO_LB : (set.weight ?? 0)));
         
-        // Convert sets to KG for calculation
-        const setsInKg = exercise.sets.map(set => {
-            const w = set.weight ?? 0;
-            return exercise.weightUnit === 'lb' ? w / KG_TO_LB : w;
-        });
-
         if (coefficient === 'gravitron') {
             const userWeight = findUserWeightForDate(workoutDate);
             if (userWeight !== null) {
-                return exercise.sets.reduce((total, set, i) => {
-                    const weight = setsInKg[i];
-                    const effectiveWeight = Math.max(0, userWeight - weight);
-                    return total + ((set.reps ?? 0) * effectiveWeight);
-                }, 0);
+                return exercise.sets.reduce((total, set, i) => total + ((set.reps ?? 0) * Math.max(0, userWeight - setsInKg[i])), 0);
             }
         }
         
         const baseVolume = exercise.sets.reduce((total, set, i) => total + ((set.reps ?? 0) * setsInKg[i]), 0);
-
-        if (coefficient === 'x2') {
-            return baseVolume * 2;
-        }
-
-        return baseVolume; // for 'x1' or fallback for gravitron
+        return coefficient === 'x2' ? baseVolume * 2 : baseVolume;
     };
 
     const calculateWorkoutVolume = (workout: Workout): number => {
         return workout.exercises.reduce((total, ex) => total + calculateExerciseVolume(ex, workout.date), 0);
     };
 
-    const visibleWorkouts = sortedWorkouts.slice(0, visibleCount);
+    const visibleWorkouts = workouts.slice(0, visibleCount);
 
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-gray-800">История тренировок</h1>
             
             {Object.entries(groupedWorkouts).map(([monthYear, monthWorkouts]) => {
-                const visibleInGroup = (monthWorkouts as Workout[]).filter(w => visibleWorkouts.some(vw => vw.id === w.id));
+                const visibleInGroup = monthWorkouts.filter(w => visibleWorkouts.some(vw => vw.id === w.id));
                 if (visibleInGroup.length === 0) return null;
 
                 return (
@@ -108,33 +73,20 @@ const HistoryView: React.FC = () => {
                         <h2 className="text-lg font-semibold text-gray-600 capitalize mb-2 sticky top-16 bg-gray-50 py-2">{monthYear}</h2>
                         <div className="space-y-4">
                             {visibleInGroup.map((workout) => (
-                                <div key={workout.id} className="bg-white p-4 rounded-lg shadow-sm">
-                                    <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExpand(workout.id)}>
+                                <div key={workout.id} className={`bg-white p-4 rounded-lg shadow-sm border-l-4 ${workout.isSynced === false ? 'border-orange-500' : 'border-transparent'}`}>
+                                    <div className="flex justify-between items-center cursor-pointer" onClick={() => setExpandedWorkoutId(expandedWorkoutId === workout.id ? null : workout.id)}>
                                         <div className="pr-4">
-                                            <p className="font-semibold text-gray-800">{format(new Date(workout.date), 'd MMMM, EEEE', { locale: ru })}</p>
-                                            <p className="text-sm text-gray-500">{workout.exercises.length} упр. • Общий тоннаж: {Math.round(calculateWorkoutVolume(workout)).toLocaleString('ru-RU')} кг</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-semibold text-gray-800">{format(new Date(workout.date), 'd MMMM, EEEE', { locale: ru })}</p>
+                                                {workout.isSynced === false && (
+                                                    <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded font-bold uppercase">Ожидает синхронизации</span>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-gray-500">{workout.exercises.length} упр. • {Math.round(calculateWorkoutVolume(workout)).toLocaleString('ru-RU')} кг</p>
                                         </div>
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEdit(workout);
-                                                }}
-                                                className="text-blue-500 hover:text-blue-700 p-1"
-                                                aria-label={`Редактировать тренировку от ${format(new Date(workout.date), 'd MMMM', { locale: ru })}`}
-                                            >
-                                                <PencilIcon className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteWorkout(workout.id);
-                                                }}
-                                                className="text-red-500 hover:text-red-700 p-1"
-                                                aria-label={`Удалить тренировку от ${format(new Date(workout.date), 'd MMMM', { locale: ru })}`}
-                                            >
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={(e) => {e.stopPropagation(); editWorkout(workout);}} className="text-blue-500 p-1"><PencilIcon className="w-5 h-5" /></button>
+                                            <button onClick={(e) => {e.stopPropagation(); if (window.confirm('Удалить?')) deleteWorkoutFromDB(workout.id);}} className="text-red-500 p-1"><TrashIcon className="w-5 h-5" /></button>
                                             {expandedWorkoutId === workout.id ? <ChevronUpIcon className="text-gray-500" /> : <ChevronDownIcon className="text-gray-500" />}
                                         </div>
                                     </div>
@@ -144,31 +96,15 @@ const HistoryView: React.FC = () => {
                                                 <div key={ex.id}>
                                                     <div className="flex justify-between items-baseline">
                                                         <h4 className="font-semibold text-gray-700">{getExerciseName(ex.exerciseId)}</h4>
-                                                        <span className="text-sm font-medium text-gray-500">
-                                                            {Math.round(calculateExerciseVolume(ex, workout.date)).toLocaleString('ru-RU')} кг
-                                                        </span>
+                                                        <span className="text-sm font-medium text-gray-500">{Math.round(calculateExerciseVolume(ex, workout.date)).toLocaleString('ru-RU')} кг</span>
                                                     </div>
                                                     <ul className="text-sm text-gray-600 list-disc list-inside pl-2">
-                                                        {ex.sets.map(set => {
-                                                            const isLb = ex.weightUnit === 'lb';
-                                                            const weight = set.weight ?? 0;
-                                                            const display = isLb 
-                                                                ? `${weight} lbs (${parseFloat((weight/KG_TO_LB).toFixed(1))} кг)` 
-                                                                : `${weight} кг`;
-                                                            
-                                                            return (
-                                                                <li key={set.id}>
-                                                                    {set.reps ?? 0} x {display}
-                                                                </li>
-                                                            );
-                                                        })}
+                                                        {ex.sets.map(set => (
+                                                            <li key={set.id}>{set.reps ?? 0} x {ex.weightUnit === 'lb' ? `${set.weight} lbs` : `${set.weight} кг`}</li>
+                                                        ))}
                                                     </ul>
                                                 </div>
                                             ))}
-                                            <div className="flex gap-2 pt-2">
-                                                <Button variant="secondary" onClick={() => handleEdit(workout)}>Редактировать</Button>
-                                                <Button variant="secondary" onClick={() => handleDeleteWorkout(workout.id)} className="bg-red-100 text-red-800 hover:bg-red-200 focus:ring-red-300">Удалить</Button>
-                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -178,15 +114,8 @@ const HistoryView: React.FC = () => {
                 );
             })}
             
-            {workouts.length === 0 && (
-                <p className="text-gray-500 text-center">У вас еще нет сохраненных тренировок.</p>
-            )}
-
-            {visibleCount < workouts.length && (
-                <Button variant="secondary" onClick={() => setVisibleCount(visibleCount + 10)}>
-                    Показать больше
-                </Button>
-            )}
+            {workouts.length === 0 && <p className="text-gray-500 text-center">У вас еще нет сохраненных тренировок.</p>}
+            {visibleCount < workouts.length && <Button variant="secondary" onClick={() => setVisibleCount(visibleCount + 10)}>Показать больше</Button>}
         </div>
     );
 };

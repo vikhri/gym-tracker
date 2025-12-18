@@ -1,4 +1,3 @@
-
 import React, { useState, useContext } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
@@ -7,14 +6,12 @@ import PencilIcon from '../components/icons/PencilIcon';
 import XIcon from '../components/icons/XIcon';
 import { Exercise } from '../types';
 
-
 const getCoefficientLabel = (coefficient?: 'x1' | 'x2' | 'gravitron') => {
     switch (coefficient) {
         case 'x2': return 'x2';
         case 'gravitron': return 'Гравитрон';
         case 'x1':
-        default:
-            return 'x1';
+        default: return 'x1';
     }
 };
 
@@ -28,9 +25,7 @@ const EditExerciseModal: React.FC<{
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
-        if (name.trim()) {
-            onSave({ ...exercise, name: name.trim(), coefficient });
-        }
+        if (name.trim()) onSave({ ...exercise, name: name.trim(), coefficient });
     };
 
     return (
@@ -74,7 +69,6 @@ const EditExerciseModal: React.FC<{
     );
 };
 
-
 const ExercisesView: React.FC = () => {
     const context = useContext(AppContext);
     if (!context) return null;
@@ -90,17 +84,6 @@ const ExercisesView: React.FC = () => {
         setNewExerciseName('');
         setNewExerciseCoeff('x1');
     };
-
-    const handleDeleteExercise = (exercise: Exercise) => {
-         if (window.confirm(`Вы уверены, что хотите удалить упражнение "${exercise.name}"?`)) {
-            deleteExercise(exercise.id);
-        }
-    };
-    
-    const handleSaveExercise = (exercise: Exercise) => {
-        updateExercise(exercise);
-        setEditingExercise(null);
-    }
 
     return (
         <div className="space-y-6">
@@ -122,14 +105,12 @@ const ExercisesView: React.FC = () => {
                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
                         aria-label="Коэффициент"
                     >
-                        <option value="x1">Коэффициент: x1 (стандартный)</option>
-                        <option value="x2">Коэффициент: x2 (удвоенный)</option>
-                        <option value="gravitron">Коэффициент: Гравитрон</option>
+                        <option value="x1">x1 (стандартный)</option>
+                        <option value="x2">x2 (удвоенный)</option>
+                        <option value="gravitron">Гравитрон</option>
                     </select>
                 </div>
-                <Button onClick={handleAddExercise} disabled={!newExerciseName.trim()}>
-                    Добавить упражнение
-                </Button>
+                <Button onClick={handleAddExercise} disabled={!newExerciseName.trim()}>Добавить упражнение</Button>
             </div>
 
             <div className="bg-white p-4 rounded-lg shadow-sm space-y-3">
@@ -137,17 +118,22 @@ const ExercisesView: React.FC = () => {
                 <ul className="divide-y divide-gray-200">
                     {exercises.map((exercise) => (
                         <li key={exercise.id} className="py-3 flex justify-between items-center">
-                            <div>
-                                <span className="text-gray-800">{exercise.name}</span>
-                                <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-1 ml-2 font-medium">
-                                    {getCoefficientLabel(exercise.coefficient)}
-                                </span>
+                            <div className="flex flex-col">
+                                <div className="flex items-center">
+                                    <span className="text-gray-800">{exercise.name}</span>
+                                    <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-1 ml-2 font-medium">
+                                        {getCoefficientLabel(exercise.coefficient)}
+                                    </span>
+                                </div>
+                                {exercise.isSynced === false && (
+                                    <span className="text-[10px] text-orange-500 font-bold uppercase mt-1">Ожидает синхронизации</span>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
-                                <button onClick={() => setEditingExercise(exercise)} className="text-blue-500 hover:text-blue-700 p-1" aria-label={`Редактировать ${exercise.name}`}>
+                                <button onClick={() => setEditingExercise(exercise)} className="text-blue-500 hover:text-blue-700 p-1">
                                     <PencilIcon className="w-5 h-5" />
                                 </button>
-                                <button onClick={() => handleDeleteExercise(exercise)} className="text-red-500 hover:text-red-700 p-1" aria-label={`Удалить ${exercise.name}`}>
+                                <button onClick={() => deleteExercise(exercise.id)} className="text-red-500 hover:text-red-700 p-1">
                                     <TrashIcon className="w-5 h-5" />
                                 </button>
                             </div>
@@ -155,13 +141,7 @@ const ExercisesView: React.FC = () => {
                     ))}
                 </ul>
             </div>
-            {editingExercise && (
-                <EditExerciseModal 
-                    exercise={editingExercise}
-                    onSave={handleSaveExercise}
-                    onClose={() => setEditingExercise(null)}
-                />
-            )}
+            {editingExercise && <EditExerciseModal exercise={editingExercise} onSave={(ex) => {updateExercise(ex); setEditingExercise(null);}} onClose={() => setEditingExercise(null)} />}
         </div>
     );
 };

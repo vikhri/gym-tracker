@@ -1,8 +1,5 @@
-
-import React, { useState, createContext, useMemo, useEffect } from 'react';
+import React, { useState, createContext, useMemo, useEffect, useCallback } from 'react';
 import { auth, db } from './firebase';
-// FIX: The User type is not a named export from 'firebase/compat/app'.
-// It is available on the default-exported firebase namespace.
 import firebase from 'firebase/compat/app';
 import { Workout, Exercise, WeightEntry } from './types';
 import Layout from './components/Layout';
@@ -13,6 +10,9 @@ import LoginView from './views/LoginView';
 import useLocalStorage from './hooks/useLocalStorage';
 import WeightView from './views/WeightView';
 import Toast from './components/Toast';
+import { offlineStorage } from './storage/offlineDb';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { syncService } from './services/syncService';
 
 export const AppContext = createContext<{
     workouts: Workout[];
@@ -27,8 +27,9 @@ export const AppContext = createContext<{
     weightEntries: WeightEntry[];
     addWeightEntry: (weightEntry: Omit<WeightEntry, 'id'>) => void;
     showToast: (message: string) => void;
+    isOnline: boolean;
+    syncData: () => Promise<void>;
 } | null>(null);
-
 
 function useAuth() {
     const [user, setUser] = useState<firebase.User | null>(null);
@@ -50,9 +51,9 @@ const createNewWorkout = (): Omit<Workout, 'id'> => ({
     exercises: [],
 });
 
-
 const App: React.FC = () => {
     const { user, loading } = useAuth();
+    const isOnline = useNetworkStatus();
     const [activeTab, setActiveTab] = useState('workout');
     const [workouts, setWorkouts] = useState<Workout[]>([]);
     const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -63,91 +64,140 @@ const App: React.FC = () => {
         createNewWorkout()
     );
 
+    const syncData = useCallback(async () => {
+        if (!user || !isOnline) return;
+        await syncService.processQueue(user.uid);
+        showToast("Данные синхронизированы");
+    }, [user, isOnline]);
+
+    // Initial load from Offline Storage
+    useEffect(() => {
+        const loadOffline = async () => {
+            const [offEx, offWorkouts] = await Promise.all([
+                offlineStorage.getExercises(),
+                offlineStorage.getRecentWorkouts(10) // Cache more than 3 for smoother history
+            ]);
+            if (offEx.length > 0) setExercises(offEx);
+            if (offWorkouts.length > 0) setWorkouts(offWorkouts);
+        };
+        loadOffline();
+    }, []);
+
+    // Sync when online
+    useEffect(() => {
+        if (isOnline && user) {
+            syncData();
+        }
+    }, [isOnline, user, syncData]);
 
     useEffect(() => {
         if (!user) {
             setWorkouts([]);
             setExercises([]);
             setWeightEntries([]);
-            setCurrentWorkout(createNewWorkout());
             return;
         }
 
-        const exercisesCollection = db.collection('global-exercises');
-        const exercisesUnsub = exercisesCollection.onSnapshot(snapshot => {
-            if (snapshot.empty) {
-                const defaultExercises = [
-                    { name: 'Bench Press', coefficient: 'x1' },
-                    { name: 'Squat', coefficient: 'x1' },
-                    { name: 'Deadlift', coefficient: 'x1' },
-                    { name: 'Overhead Press', coefficient: 'x1' },
-                ];
-                const batch = db.batch();
-                defaultExercises.forEach(ex => {
-                    const docRef = exercisesCollection.doc();
-                    batch.set(docRef, ex);
-                });
-                batch.commit();
-            } else {
-                const fetchedExercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
-                const sortedExercises = fetchedExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-                setExercises(sortedExercises);
-            }
+        const exercisesUnsub = db.collection('global-exercises').onSnapshot(async snapshot => {
+            const fetchedExercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Exercise));
+            const sorted = fetchedExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+            setExercises(sorted);
+            await offlineStorage.saveExercises(sorted);
         });
 
-        const workoutsCollection = db.collection('users').doc(user.uid).collection('workouts');
-        const workoutsUnsub = workoutsCollection.orderBy('date', 'desc').onSnapshot(snapshot => {
-            const fetchedWorkouts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout));
-            setWorkouts(fetchedWorkouts);
-        });
-        
-        const weightCollection = db.collection('users').doc(user.uid).collection('weightEntries');
-        const weightUnsub = weightCollection.orderBy('date', 'asc').onSnapshot(snapshot => {
-            const fetchedWeights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeightEntry));
-            setWeightEntries(fetchedWeights);
-        });
+        const workoutsUnsub = db.collection('users').doc(user.uid).collection('workouts')
+            .orderBy('date', 'desc').limit(15).onSnapshot(async snapshot => {
+                const fetchedWorkouts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Workout));
+                setWorkouts(fetchedWorkouts);
+                for (const w of fetchedWorkouts) {
+                    await offlineStorage.saveWorkout(w);
+                }
+            });
+
+        const weightUnsub = db.collection('users').doc(user.uid).collection('weightEntries')
+            .orderBy('date', 'asc').onSnapshot(snapshot => {
+                const fetchedWeights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeightEntry));
+                setWeightEntries(fetchedWeights);
+            });
 
         return () => {
             exercisesUnsub();
             workoutsUnsub();
             weightUnsub();
         };
-    }, [user, setCurrentWorkout]);
+    }, [user]);
 
     const editWorkout = (workout: Workout | null) => {
-        if (workout) {
-            setCurrentWorkout(workout);
-        }
+        if (workout) setCurrentWorkout(workout);
         setActiveTab('workout');
     };
 
     const showToast = (message: string) => {
         setToastMessage(message);
-        setTimeout(() => {
-            setToastMessage(null);
-        }, 2000);
+        setTimeout(() => setToastMessage(null), 2000);
     };
     
-    // --- Firestore Functions ---
-    
-    const addWorkout = (workout: Omit<Workout, 'id'>) => {
+    const addWorkout = async (workout: Omit<Workout, 'id'>) => {
         if (!user) return;
-        db.collection('users').doc(user.uid).collection('workouts').add(workout);
+        const newId = crypto.randomUUID();
+        const workoutWithId: Workout = { 
+            ...workout, 
+            id: newId, 
+            isSynced: isOnline,
+            createdAt: Date.now()
+        };
+
+        // Save local first
+        await offlineStorage.saveWorkout(workoutWithId);
+        setWorkouts(prev => [workoutWithId, ...prev]);
+
+        if (isOnline) {
+            try {
+                const { isSynced, ...data } = workoutWithId;
+                await db.collection('users').doc(user.uid).collection('workouts').doc(newId).set(data);
+            } catch (e) {
+                await offlineStorage.addToSyncQueue('CREATE_WORKOUT', workoutWithId);
+            }
+        } else {
+            await offlineStorage.addToSyncQueue('CREATE_WORKOUT', workoutWithId);
+        }
     }
     
-    const updateWorkout = (workout: Workout) => {
+    const updateWorkout = async (workout: Workout) => {
         if (!user) return;
-        const { id, ...workoutData } = workout;
-        db.collection('users').doc(user.uid).collection('workouts').doc(id).set(workoutData);
+        const updated = { ...workout, isSynced: isOnline };
+        await offlineStorage.saveWorkout(updated);
+        setWorkouts(prev => prev.map(w => w.id === workout.id ? updated : w));
+
+        if (isOnline) {
+            const { id, isSynced, ...workoutData } = updated;
+            await db.collection('users').doc(user.uid).collection('workouts').doc(id).set(workoutData);
+        }
     }
     
     const deleteWorkout = (id: string) => {
         if (!user) return;
         db.collection('users').doc(user.uid).collection('workouts').doc(id).delete();
+        setWorkouts(prev => prev.filter(w => w.id !== id));
+        // Note: Real offline deletion would need a separate queue
     }
 
-    const addExercise = (exercise: Omit<Exercise, 'id'>) => {
-        db.collection('global-exercises').add(exercise);
+    const addExercise = async (exercise: Omit<Exercise, 'id'>) => {
+        const newId = crypto.randomUUID();
+        const exerciseWithId: Exercise = { ...exercise, id: newId, isSynced: isOnline };
+        
+        setExercises(prev => [...prev, exerciseWithId].sort((a,b) => a.name.localeCompare(b.name, 'ru')));
+        await offlineStorage.saveExercises([exerciseWithId]);
+
+        if (isOnline) {
+            try {
+                await db.collection('global-exercises').add(exercise);
+            } catch (e) {
+                await offlineStorage.addToSyncQueue('CREATE_EXERCISE', exerciseWithId);
+            }
+        } else {
+            await offlineStorage.addToSyncQueue('CREATE_EXERCISE', exerciseWithId);
+        }
     }
 
     const updateExercise = (exercise: Exercise) => {
@@ -156,23 +206,18 @@ const App: React.FC = () => {
     }
     
     const deleteExercise = (id: string) => {
-         db.collection('global-exercises').doc(id).delete();
+        db.collection('global-exercises').doc(id).delete();
     }
     
     const addWeightEntry = (weightEntry: Omit<WeightEntry, 'id'>) => {
         if (!user) return;
-        
         const existingEntry = weightEntries.find(entry => entry.date === weightEntry.date);
-        
         if (existingEntry) {
-            // Update the existing entry using its specific ID
             db.collection('users').doc(user.uid).collection('weightEntries').doc(existingEntry.id).set(weightEntry);
         } else {
-            // Add a new entry using the date as the ID to ensure uniqueness and idempotency
             db.collection('users').doc(user.uid).collection('weightEntries').doc(weightEntry.date).set(weightEntry);
         }
     }
-
 
     const contextValue = useMemo(() => ({
         workouts,
@@ -186,35 +231,26 @@ const App: React.FC = () => {
         editWorkout,
         weightEntries,
         addWeightEntry,
-        showToast
-    }), [workouts, exercises, user, weightEntries]);
+        showToast,
+        isOnline,
+        syncData
+    }), [workouts, exercises, user, weightEntries, isOnline, syncData]);
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'workout':
-                return <WorkoutView currentWorkout={currentWorkout} setCurrentWorkout={setCurrentWorkout} />;
-            case 'exercises':
-                return <ExercisesView />;
-            case 'history':
-                return <HistoryView />;
-            case 'weight':
-                return <WeightView />;
-            default:
-                return <WorkoutView currentWorkout={currentWorkout} setCurrentWorkout={setCurrentWorkout} />;
+            case 'workout': return <WorkoutView currentWorkout={currentWorkout} setCurrentWorkout={setCurrentWorkout} />;
+            case 'exercises': return <ExercisesView />;
+            case 'history': return <HistoryView />;
+            case 'weight': return <WeightView />;
+            default: return <WorkoutView currentWorkout={currentWorkout} setCurrentWorkout={setCurrentWorkout} />;
         }
     };
     
     if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <p className="text-gray-500">Загрузка...</p>
-            </div>
-        );
+        return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Загрузка...</p></div>;
     }
 
-    if (!user) {
-        return <LoginView />;
-    }
+    if (!user) return <LoginView />;
 
     return (
         <AppContext.Provider value={contextValue}>
