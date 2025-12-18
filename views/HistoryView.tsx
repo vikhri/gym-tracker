@@ -104,14 +104,11 @@ const HistoryView: React.FC = () => {
                         <h2 className="text-lg font-semibold text-gray-600 capitalize mb-2 sticky top-16 bg-gray-50 py-2">{monthYear}</h2>
                         <div className="space-y-4">
                             {visibleInGroup.map((workout) => (
-                                <div key={workout.id} className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-transparent data-[synced=false]:border-orange-500" data-synced={workout.isSynced !== false}>
+                                <div key={workout.id} className="bg-white p-4 rounded-lg shadow-sm">
                                     <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExpand(workout.id)}>
                                         <div className="pr-4">
                                             <div className="flex items-center gap-2">
                                                 <p className="font-semibold text-gray-800">{format(new Date(workout.date), 'd MMMM, EEEE', { locale: ru })}</p>
-                                                {workout.isSynced === false && (
-                                                    <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded font-bold uppercase">Ожидает</span>
-                                                )}
                                             </div>
                                             <p className="text-sm text-gray-500">{workout.exercises.length} упр. • Общий тоннаж: {Math.round(calculateWorkoutVolume(workout)).toLocaleString('ru-RU')} кг</p>
                                         </div>

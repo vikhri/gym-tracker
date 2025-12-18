@@ -143,9 +143,6 @@ const ExercisesView: React.FC = () => {
                                         {getCoefficientLabel(exercise.coefficient)}
                                     </span>
                                 </div>
-                                {exercise.isSynced === false && (
-                                    <span className="text-[10px] text-orange-500 font-bold uppercase mt-1">Ожидает синхронизации</span>
-                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setEditingExercise(exercise)} className="text-blue-500 hover:text-blue-700 p-1" aria-label={`Редактировать ${exercise.name}`}>

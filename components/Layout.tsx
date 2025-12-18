@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import BurgerIcon from './icons/BurgerIcon';
 import XIcon from './icons/XIcon';
 import LogoutIcon from './icons/LogoutIcon';
@@ -8,8 +8,6 @@ import ClipboardListIcon from './icons/ClipboardListIcon';
 import PlusIcon from './icons/PlusIcon';
 import ScaleIcon from './icons/ScaleIcon';
 import FloatingActionButton from './FloatingActionButton';
-import { AppContext } from '../App';
-import ClockIcon from './icons/ClockIcon';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -18,21 +16,10 @@ interface LayoutProps {
 }
 
 const Header: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
-    const context = useContext(AppContext);
-    const isOnline = context?.isOnline ?? true;
-
     return (
         <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-20">
             <div className="relative flex justify-between items-center h-16 px-4">
-                 <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} title={isOnline ? 'Онлайн' : 'Оффлайн'}></div>
-                    {!isOnline && <span className="text-[10px] font-bold text-red-600 uppercase">Offline</span>}
-                    {isOnline && context?.sync && (
-                        <button onClick={() => context.sync()} className="p-2 text-gray-500 hover:text-blue-600" aria-label="Синхронизировать">
-                            <ClockIcon className="w-5 h-5" />
-                        </button>
-                    )}
-                 </div>
+                 <div className="w-10"></div>
                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
                     <span className="font-bold text-gray-900">Gym Tracker</span>
                  </div>

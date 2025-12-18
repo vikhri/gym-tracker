@@ -53,12 +53,14 @@ export async function getDb(): Promise<IDBPDatabase<GymDB>> {
     return dbPromise;
 }
 
-export async function saveExerciseOffline(exercise: Exercise) {
+// FIX: Added optional updatedAt to Exercise type parameter to resolve access error on line 58
+export async function saveExerciseOffline(exercise: Exercise & { updatedAt?: number }) {
     const db = await getDb();
     await db.put('exercises', { ...exercise, updatedAt: exercise.updatedAt || Date.now() });
 }
 
-export async function saveWorkoutOffline(workout: Workout) {
+// FIX: Added optional createdAt to Workout type parameter to resolve access error on line 63
+export async function saveWorkoutOffline(workout: Workout & { createdAt?: number }) {
     const db = await getDb();
     await db.put('workouts', { ...workout, createdAt: workout.createdAt || Date.now() });
 }
