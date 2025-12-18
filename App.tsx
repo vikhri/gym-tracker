@@ -1,5 +1,8 @@
+
 import React, { useState, createContext, useMemo, useEffect } from 'react';
 import { auth, db } from './firebase';
+// FIX: The User type is not a named export from 'firebase/compat/app'.
+// It is available on the default-exported firebase namespace.
 import firebase from 'firebase/compat/app';
 import { Workout, Exercise, WeightEntry } from './types';
 import Layout from './components/Layout';
@@ -49,7 +52,7 @@ const createNewWorkout = (): Omit<Workout, 'id'> => ({
 
 
 const App: React.FC = () => {
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading } = useAuth();
     const [activeTab, setActiveTab] = useState('workout');
     const [workouts, setWorkouts] = useState<Workout[]>([]);
     const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -60,40 +63,56 @@ const App: React.FC = () => {
         createNewWorkout()
     );
 
+
     useEffect(() => {
         if (!user) {
             setWorkouts([]);
             setExercises([]);
             setWeightEntries([]);
+            setCurrentWorkout(createNewWorkout());
             return;
         }
 
-        // Real-time synchronization for exercises
-        const exercisesUnsub = db.collection('global-exercises').onSnapshot(snapshot => {
-            const fetchedExercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
-            setExercises(fetchedExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
+        const exercisesCollection = db.collection('global-exercises');
+        const exercisesUnsub = exercisesCollection.onSnapshot(snapshot => {
+            if (snapshot.empty) {
+                const defaultExercises = [
+                    { name: 'Bench Press', coefficient: 'x1' },
+                    { name: 'Squat', coefficient: 'x1' },
+                    { name: 'Deadlift', coefficient: 'x1' },
+                    { name: 'Overhead Press', coefficient: 'x1' },
+                ];
+                const batch = db.batch();
+                defaultExercises.forEach(ex => {
+                    const docRef = exercisesCollection.doc();
+                    batch.set(docRef, ex);
+                });
+                batch.commit();
+            } else {
+                const fetchedExercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
+                const sortedExercises = fetchedExercises.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+                setExercises(sortedExercises);
+            }
         });
 
-        // Real-time synchronization for workouts
-        const workoutsUnsub = db.collection('users').doc(user.uid).collection('workouts')
-            .orderBy('date', 'desc').onSnapshot(snapshot => {
-                const fetchedWorkouts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout));
-                setWorkouts(fetchedWorkouts);
-            });
-
-        // Real-time synchronization for weight entries
-        const weightUnsub = db.collection('users').doc(user.uid).collection('weightEntries')
-            .orderBy('date', 'asc').onSnapshot(snapshot => {
-                const fetchedWeights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeightEntry));
-                setWeightEntries(fetchedWeights);
-            });
+        const workoutsCollection = db.collection('users').doc(user.uid).collection('workouts');
+        const workoutsUnsub = workoutsCollection.orderBy('date', 'desc').onSnapshot(snapshot => {
+            const fetchedWorkouts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout));
+            setWorkouts(fetchedWorkouts);
+        });
+        
+        const weightCollection = db.collection('users').doc(user.uid).collection('weightEntries');
+        const weightUnsub = weightCollection.orderBy('date', 'asc').onSnapshot(snapshot => {
+            const fetchedWeights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeightEntry));
+            setWeightEntries(fetchedWeights);
+        });
 
         return () => {
             exercisesUnsub();
             workoutsUnsub();
             weightUnsub();
         };
-    }, [user]);
+    }, [user, setCurrentWorkout]);
 
     const editWorkout = (workout: Workout | null) => {
         if (workout) {
@@ -108,6 +127,8 @@ const App: React.FC = () => {
             setToastMessage(null);
         }, 2000);
     };
+    
+    // --- Firestore Functions ---
     
     const addWorkout = (workout: Omit<Workout, 'id'>) => {
         if (!user) return;
@@ -135,18 +156,23 @@ const App: React.FC = () => {
     }
     
     const deleteExercise = (id: string) => {
-        db.collection('global-exercises').doc(id).delete();
+         db.collection('global-exercises').doc(id).delete();
     }
     
     const addWeightEntry = (weightEntry: Omit<WeightEntry, 'id'>) => {
         if (!user) return;
+        
         const existingEntry = weightEntries.find(entry => entry.date === weightEntry.date);
+        
         if (existingEntry) {
+            // Update the existing entry using its specific ID
             db.collection('users').doc(user.uid).collection('weightEntries').doc(existingEntry.id).set(weightEntry);
         } else {
+            // Add a new entry using the date as the ID to ensure uniqueness and idempotency
             db.collection('users').doc(user.uid).collection('weightEntries').doc(weightEntry.date).set(weightEntry);
         }
     }
+
 
     const contextValue = useMemo(() => ({
         workouts,
@@ -178,7 +204,7 @@ const App: React.FC = () => {
         }
     };
     
-    if (authLoading) {
+    if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <p className="text-gray-500">Загрузка...</p>

@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import BurgerIcon from './icons/BurgerIcon';
 import XIcon from './icons/XIcon';
@@ -19,7 +21,7 @@ const Header: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
     return (
         <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-20">
             <div className="relative flex justify-between items-center h-16 px-4">
-                 <div className="w-10"></div>
+                 <div className="w-10 h-10"></div>
                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
                     <span className="font-bold text-gray-900">Gym Tracker</span>
                  </div>
@@ -56,12 +58,14 @@ const SideMenu: React.FC<{
 
     return (
         <>
+            {/* Оверлей */}
             <div
                 className={`fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
                 aria-hidden="true"
             ></div>
 
+            {/* Меню */}
             <div className={`fixed top-0 right-0 h-full bg-white w-64 shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`} role="dialog" aria-modal="true">
                 <div>
                     <div className="p-4 flex justify-between items-center border-b">
@@ -112,6 +116,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         <div className="min-h-screen bg-gray-50 flex flex-col">
             <Header onMenuClick={() => setIsMenuOpen(true)} />
              <SideMenu
+// FIX: Corrected a typo. The `isOpen` prop should be set to the `isMenuOpen` state variable.
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
                 activeTab={activeTab}

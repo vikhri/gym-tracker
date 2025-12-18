@@ -1,3 +1,4 @@
+
 import React, { useState, useContext } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
@@ -136,13 +137,11 @@ const ExercisesView: React.FC = () => {
                 <ul className="divide-y divide-gray-200">
                     {exercises.map((exercise) => (
                         <li key={exercise.id} className="py-3 flex justify-between items-center">
-                            <div className="flex flex-col">
-                                <div className="flex items-center">
-                                    <span className="text-gray-800">{exercise.name}</span>
-                                    <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-1 ml-2 font-medium">
-                                        {getCoefficientLabel(exercise.coefficient)}
-                                    </span>
-                                </div>
+                            <div>
+                                <span className="text-gray-800">{exercise.name}</span>
+                                <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-1 ml-2 font-medium">
+                                    {getCoefficientLabel(exercise.coefficient)}
+                                </span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setEditingExercise(exercise)} className="text-blue-500 hover:text-blue-700 p-1" aria-label={`Редактировать ${exercise.name}`}>
