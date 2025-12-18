@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -19,7 +18,7 @@ getDb().then(() => {
     );
 }).catch(err => {
     console.error("Failed to initialize database", err);
-    // Still render to allow online fallback or error display
+    // Render anyway to allow online functionality or error reporting
     const root = ReactDOM.createRoot(rootElement);
     root.render(<App />);
 });

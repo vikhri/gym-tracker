@@ -1,4 +1,3 @@
-
 import React, { useState, createContext, useMemo, useEffect } from 'react';
 import { auth, db } from './firebase';
 import firebase from 'firebase/compat/app';
@@ -101,15 +100,14 @@ const App: React.FC = () => {
 
         const loadExercises = async () => {
             try {
-                if (isOnline) {
-                    const snapshot = await db.collection('global-exercises').get();
-                    const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Exercise));
-                    for (const ex of fetched) await saveExerciseOffline(ex);
-                    setExercises(fetched.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
-                } else {
-                    throw new Error("Offline");
-                }
+                // Always try fetching from server first
+                const snapshot = await db.collection('global-exercises').get({ source: 'server' });
+                const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Exercise));
+                // Persist successful fetch to local storage
+                for (const ex of fetched) await saveExerciseOffline(ex);
+                setExercises(fetched.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
             } catch (error) {
+                // If fetch falls (exception), read from IndexedDB
                 const cached = await getOfflineExercises();
                 setExercises(cached.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
             }
@@ -117,21 +115,19 @@ const App: React.FC = () => {
 
         const loadWorkouts = async () => {
             try {
-                if (isOnline) {
-                    // Online: load last 3 and sync them locally
-                    const snapshot = await db.collection('users').doc(user.uid).collection('workouts')
-                        .orderBy('date', 'desc').limit(3).get();
-                    const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Workout));
-                    for (const w of fetched) await saveWorkoutOffline(w);
-                    
-                    // After syncing fetched 3, load EVERYTHING from IDB to respect history/unsynced items
-                    const all = await getOfflineWorkouts();
-                    setWorkouts(all.reverse());
-                } else {
-                    throw new Error("Offline");
-                }
+                // Always try fetching from server first (last 3)
+                const snapshot = await db.collection('users').doc(user.uid).collection('workouts')
+                    .orderBy('date', 'desc').limit(3).get({ source: 'server' });
+                const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isSynced: true } as Workout));
+                // Persist fetched workouts to local storage
+                for (const w of fetched) await saveWorkoutOffline(w);
+                
+                // After syncing, load all history from local DB to populate the UI
+                const all = await getOfflineWorkouts();
+                setWorkouts(all.reverse());
             } catch (error) {
-                const cached = await getOfflineWorkouts();
+                // On failure, read only last 3 from IndexedDB as per requirements
+                const cached = await getOfflineWorkouts(3);
                 setWorkouts(cached.reverse());
             }
         };
@@ -179,7 +175,6 @@ const App: React.FC = () => {
                 await db.collection('users').doc(user.uid).collection('workouts').doc(newId).set(data);
             } catch (e) {
                 await addToSyncQueue({ type: 'CREATE_WORKOUT', payload: { ...workoutWithId, isSynced: false } });
-                // Update local to reflect unsynced state if real network error occurred despite isOnline check
                 await saveWorkoutOffline({ ...workoutWithId, isSynced: false });
             }
         } else {
@@ -198,7 +193,8 @@ const App: React.FC = () => {
                 const { id, isSynced, ...workoutData } = updatedWorkout;
                 await db.collection('users').doc(user.uid).collection('workouts').doc(id).set(workoutData);
             } catch (e) {
-                // Fallback: update offline but mark as unsynced would be ideal here too
+                // Update local status if direct sync failed
+                await saveWorkoutOffline({ ...updatedWorkout, isSynced: false });
             }
         }
     }
@@ -206,9 +202,6 @@ const App: React.FC = () => {
     const deleteWorkout = async (id: string) => {
         if (!user) return;
         setWorkouts(prev => prev.filter(w => w.id !== id));
-        // We delete from IDB immediately
-        const idb = await getOfflineWorkouts();
-        // Since idb library returns all, we manually delete
         const gymDb = await import('./storage/offlineDb').then(m => m.getDb());
         await gymDb.delete('workouts', id);
 
