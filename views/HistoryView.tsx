@@ -1,9 +1,7 @@
-
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Button from '../components/Button';
 import { format } from 'date-fns';
-// FIX: The 'ru' locale should be imported from its specific module path in date-fns.
 import { ru } from 'date-fns/locale/ru';
 import { Workout, WorkoutExercise, WeightEntry } from '../types';
 import ChevronDownIcon from '../components/icons/ChevronDownIcon';
@@ -21,7 +19,6 @@ const HistoryView: React.FC = () => {
     const [visibleCount, setVisibleCount] = useState(10);
     const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
 
-    // Workouts are sorted by date from the App context state
     const sortedWorkouts = workouts;
 
     const groupedWorkouts = useMemo(() => {
@@ -63,7 +60,6 @@ const HistoryView: React.FC = () => {
         const exerciseDef = exercises.find(e => e.id === exercise.exerciseId);
         const coefficient = exerciseDef?.coefficient || 'x1';
         
-        // Convert sets to KG for calculation
         const setsInKg = exercise.sets.map(set => {
             const w = set.weight ?? 0;
             return exercise.weightUnit === 'lb' ? w / KG_TO_LB : w;
@@ -86,7 +82,7 @@ const HistoryView: React.FC = () => {
             return baseVolume * 2;
         }
 
-        return baseVolume; // for 'x1' or fallback for gravitron
+        return baseVolume;
     };
 
     const calculateWorkoutVolume = (workout: Workout): number => {
@@ -108,10 +104,15 @@ const HistoryView: React.FC = () => {
                         <h2 className="text-lg font-semibold text-gray-600 capitalize mb-2 sticky top-16 bg-gray-50 py-2">{monthYear}</h2>
                         <div className="space-y-4">
                             {visibleInGroup.map((workout) => (
-                                <div key={workout.id} className="bg-white p-4 rounded-lg shadow-sm">
+                                <div key={workout.id} className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-transparent data-[synced=false]:border-orange-500" data-synced={workout.isSynced !== false}>
                                     <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExpand(workout.id)}>
                                         <div className="pr-4">
-                                            <p className="font-semibold text-gray-800">{format(new Date(workout.date), 'd MMMM, EEEE', { locale: ru })}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-semibold text-gray-800">{format(new Date(workout.date), 'd MMMM, EEEE', { locale: ru })}</p>
+                                                {workout.isSynced === false && (
+                                                    <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded font-bold uppercase">Ожидает</span>
+                                                )}
+                                            </div>
                                             <p className="text-sm text-gray-500">{workout.exercises.length} упр. • Общий тоннаж: {Math.round(calculateWorkoutVolume(workout)).toLocaleString('ru-RU')} кг</p>
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
