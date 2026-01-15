@@ -14,16 +14,16 @@ import Toast from './components/Toast';
 
 export const AppContext = createContext<{
     workouts: Workout[];
-    addWorkout: (workout: Omit<Workout, 'id'>) => void;
+    addWorkout: (workout: Workout) => void;
     updateWorkout: (workout: Workout) => void;
     deleteWorkout: (id: string) => void;
     exercises: Exercise[];
-    addExercise: (exercise: Omit<Exercise, 'id'>) => void;
+    addExercise: (exercise: Exercise) => void;
     updateExercise: (exercise: Exercise) => void;
     deleteExercise: (id: string) => void;
     editWorkout: (workout: Workout | null) => void;
     weightEntries: WeightEntry[];
-    addWeightEntry: (weightEntry: Omit<WeightEntry, 'id'>) => void;
+    addWeightEntry: (weightEntry: WeightEntry) => void;
     showToast: (message: string) => void;
     syncData: () => Promise<void>;
     hasPendingSync: boolean;
@@ -47,7 +47,8 @@ function useAuth() {
     return { user, loading };
 }
 
-const createNewWorkout = (): Omit<Workout, 'id'> => ({
+const createNewWorkout = (): Workout => ({
+    id: crypto.randomUUID(),
     date: new Date().toISOString().split('T')[0],
     exercises: [],
 });
@@ -68,11 +69,11 @@ const App: React.FC = () => {
     const [cachedExercises, setCachedExercises] = useLocalStorage<Exercise[]>('cachedExercises', []);
     
     // Pending Changes for manual sync
-    const [pendingWorkouts, setPendingWorkouts] = useLocalStorage<Omit<Workout, 'id'>[]>('pendingWorkouts', []);
-    const [pendingExercises, setPendingExercises] = useLocalStorage<Omit<Exercise, 'id'>[]>('pendingExercises', []);
-    const [pendingWeights, setPendingWeights] = useLocalStorage<Omit<WeightEntry, 'id'>[]>('pendingWeights', []);
+    const [pendingWorkouts, setPendingWorkouts] = useLocalStorage<Workout[]>('pendingWorkouts', []);
+    const [pendingExercises, setPendingExercises] = useLocalStorage<Exercise[]>('pendingExercises', []);
+    const [pendingWeights, setPendingWeights] = useLocalStorage<WeightEntry[]>('pendingWeights', []);
 
-    const [currentWorkout, setCurrentWorkout] = useLocalStorage<Workout | Omit<Workout, 'id'>>(
+    const [currentWorkout, setCurrentWorkout] = useLocalStorage<Workout>(
         'currentWorkout',
         createNewWorkout()
     );
@@ -124,12 +125,13 @@ const App: React.FC = () => {
         setIsSyncing(true);
         setSyncSuccess(false);
         try {
-            // 1. Push pending changes to Firestore
+            // Push pending changes to Firestore using stable IDs to prevent duplicates
             if (pendingWorkouts.length > 0) {
                 const batch = db.batch();
                 pendingWorkouts.forEach(w => {
-                    const docRef = db.collection('users').doc(user.uid).collection('workouts').doc();
-                    batch.set(docRef, w);
+                    const docRef = db.collection('users').doc(user.uid).collection('workouts').doc(w.id);
+                    const { id, ...data } = w;
+                    batch.set(docRef, data);
                 });
                 await batch.commit();
                 setPendingWorkouts([]);
@@ -138,8 +140,9 @@ const App: React.FC = () => {
             if (pendingExercises.length > 0) {
                 const batch = db.batch();
                 pendingExercises.forEach(e => {
-                    const docRef = db.collection('global-exercises').doc();
-                    batch.set(docRef, e);
+                    const docRef = db.collection('global-exercises').doc(e.id);
+                    const { id, ...data } = e;
+                    batch.set(docRef, data);
                 });
                 await batch.commit();
                 setPendingExercises([]);
@@ -148,22 +151,22 @@ const App: React.FC = () => {
             if (pendingWeights.length > 0) {
                 const batch = db.batch();
                 pendingWeights.forEach(w => {
-                    // Use date as ID to avoid duplicates on sync
-                    const docRef = db.collection('users').doc(user.uid).collection('weightEntries').doc(w.date);
-                    batch.set(docRef, w);
+                    const docRef = db.collection('users').doc(user.uid).collection('weightEntries').doc(w.id);
+                    const { id, ...data } = w;
+                    batch.set(docRef, data);
                 });
                 await batch.commit();
                 setPendingWeights([]);
             }
 
-            // 2. Fetch and Update local cache
+            // Update local cache
             const exSnap = await db.collection('global-exercises').get();
             const allEx = exSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exercise));
             setCachedExercises(allEx.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
 
-            const woSnap = await db.collection('users').doc(user.uid).collection('workouts').orderBy('date', 'desc').limit(3).get();
-            const top3Wo = woSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout));
-            setCachedWorkouts(top3Wo);
+            const woSnap = await db.collection('users').doc(user.uid).collection('workouts').orderBy('date', 'desc').limit(5).get();
+            const top5Wo = woSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout));
+            setCachedWorkouts(top5Wo);
 
             setSyncSuccess(true);
             setTimeout(() => setSyncSuccess(false), 3000);
@@ -178,6 +181,8 @@ const App: React.FC = () => {
     const editWorkout = (workout: Workout | null) => {
         if (workout) {
             setCurrentWorkout(workout);
+        } else {
+            setCurrentWorkout(createNewWorkout());
         }
         setActiveTab('workout');
     };
@@ -189,19 +194,13 @@ const App: React.FC = () => {
         }, 2000);
     };
     
-    // --- Data Handlers (Enhanced for Offline) ---
-    
-    const addWorkout = (workout: Omit<Workout, 'id'>) => {
-        // Optimistic UI update
-        const tempWorkout = { ...workout, id: 'temp-' + Date.now() } as Workout;
-        setWorkouts(prev => [tempWorkout, ...prev]);
-        
-        // Save to pending and try background sync if online
+    const addWorkout = (workout: Workout) => {
         setPendingWorkouts(prev => [...prev, workout]);
-        
-        if (navigator.onLine && user) {
-            db.collection('users').doc(user.uid).collection('workouts').add(workout)
-                .then(() => setPendingWorkouts(prev => prev.filter(w => w !== workout)));
+        if (user) {
+            const { id, ...data } = workout;
+            // Use stable ID to prevent duplicates if offline persistence is active
+            db.collection('users').doc(user.uid).collection('workouts').doc(id).set(data)
+                .then(() => setPendingWorkouts(prev => prev.filter(w => w.id !== id)));
         }
     }
     
@@ -214,14 +213,14 @@ const App: React.FC = () => {
     const deleteWorkout = (id: string) => {
         if (!user) return;
         db.collection('users').doc(user.uid).collection('workouts').doc(id).delete();
+        setPendingWorkouts(prev => prev.filter(w => w.id !== id));
     }
 
-    const addExercise = (exercise: Omit<Exercise, 'id'>) => {
+    const addExercise = (exercise: Exercise) => {
         setPendingExercises(prev => [...prev, exercise]);
-        if (navigator.onLine) {
-            db.collection('global-exercises').add(exercise)
-                .then(() => setPendingExercises(prev => prev.filter(e => e !== exercise)));
-        }
+        const { id, ...data } = exercise;
+        db.collection('global-exercises').doc(id).set(data)
+            .then(() => setPendingExercises(prev => prev.filter(e => e.id !== id)));
     }
 
     const updateExercise = (exercise: Exercise) => {
@@ -231,13 +230,15 @@ const App: React.FC = () => {
     
     const deleteExercise = (id: string) => {
          db.collection('global-exercises').doc(id).delete();
+         setPendingExercises(prev => prev.filter(e => e.id !== id));
     }
     
-    const addWeightEntry = (weightEntry: Omit<WeightEntry, 'id'>) => {
+    const addWeightEntry = (weightEntry: WeightEntry) => {
         setPendingWeights(prev => [...prev, weightEntry]);
-        if (navigator.onLine && user) {
-            db.collection('users').doc(user.uid).collection('weightEntries').doc(weightEntry.date).set(weightEntry)
-                .then(() => setPendingWeights(prev => prev.filter(w => w !== weightEntry)));
+        if (user) {
+            const { id, ...data } = weightEntry;
+            db.collection('users').doc(user.uid).collection('weightEntries').doc(id).set(data)
+                .then(() => setPendingWeights(prev => prev.filter(w => w.id !== id)));
         }
     }
 
@@ -282,7 +283,7 @@ const App: React.FC = () => {
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <p className="text-gray-500">Загрузка...</p>
+                <p className="text-gray-500 font-medium">Загрузка данных...</p>
             </div>
         );
     }

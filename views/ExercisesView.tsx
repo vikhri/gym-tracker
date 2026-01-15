@@ -48,7 +48,7 @@ const EditExerciseModal: React.FC<{
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                            className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-gray-50"
                         />
                     </div>
                     <div>
@@ -57,7 +57,7 @@ const EditExerciseModal: React.FC<{
                             id="edit-exercise-coeff"
                             value={coefficient}
                             onChange={(e) => setCoefficient(e.target.value as 'x1' | 'x2' | 'gravitron')}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-gray-50"
                         >
                             <option value="x1">x1</option>
                             <option value="x2">x2</option>
@@ -65,7 +65,7 @@ const EditExerciseModal: React.FC<{
                         </select>
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
-                         <Button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400">Отмена</Button>
+                         <Button type="button" onClick={onClose} variant="secondary">Отмена</Button>
                         <Button type="submit">Сохранить</Button>
                     </div>
                 </form>
@@ -86,7 +86,11 @@ const ExercisesView: React.FC = () => {
 
     const handleAddExercise = () => {
         if (newExerciseName.trim() === '') return;
-        addExercise({ name: newExerciseName.trim(), coefficient: newExerciseCoeff });
+        addExercise({ 
+            id: crypto.randomUUID(), 
+            name: newExerciseName.trim(), 
+            coefficient: newExerciseCoeff 
+        });
         setNewExerciseName('');
         setNewExerciseCoeff('x1');
     };
@@ -106,53 +110,55 @@ const ExercisesView: React.FC = () => {
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-gray-800">Упражнения</h1>
             
-            <div className="bg-white p-4 rounded-lg shadow-sm space-y-3">
-                <h2 className="text-lg font-semibold text-gray-900">Добавить новое упражнение</h2>
+            <div className="bg-white p-4 rounded-lg shadow-sm space-y-3 border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900">Добавить новое</h2>
                  <div className="space-y-2">
                     <input
                         type="text"
                         value={newExerciseName}
                         onChange={(e) => setNewExerciseName(e.target.value)}
                         placeholder="Название упражнения"
-                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-gray-50 font-medium"
                     />
                      <select
                         value={newExerciseCoeff}
                         onChange={(e) => setNewExerciseCoeff(e.target.value as 'x1' | 'x2' | 'gravitron')}
-                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-gray-50"
                         aria-label="Коэффициент"
                     >
-                        <option value="x1">Коэффициент: x1 (стандартный)</option>
-                        <option value="x2">Коэффициент: x2 (удвоенный)</option>
-                        <option value="gravitron">Коэффициент: Гравитрон</option>
+                        <option value="x1">x1 (стандартный)</option>
+                        <option value="x2">x2 (удвоенный)</option>
+                        <option value="gravitron">Гравитрон</option>
                     </select>
                 </div>
                 <Button onClick={handleAddExercise} disabled={!newExerciseName.trim()}>
-                    Добавить упражнение
+                    Добавить в список
                 </Button>
             </div>
 
-            <div className="bg-white p-4 rounded-lg shadow-sm space-y-3">
-                 <h2 className="text-lg font-semibold text-gray-900">Список упражнений</h2>
-                <ul className="divide-y divide-gray-200">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                <ul className="divide-y divide-gray-100">
                     {exercises.map((exercise) => (
-                        <li key={exercise.id} className="py-3 flex justify-between items-center">
-                            <div>
-                                <span className="text-gray-800">{exercise.name}</span>
-                                <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-1 ml-2 font-medium">
+                        <li key={exercise.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                            <div className="flex flex-col">
+                                <span className="text-gray-800 font-medium">{exercise.name}</span>
+                                <span className="text-[10px] text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 mt-1 font-bold w-fit uppercase">
                                     {getCoefficientLabel(exercise.coefficient)}
                                 </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => setEditingExercise(exercise)} className="text-blue-500 hover:text-blue-700 p-1" aria-label={`Редактировать ${exercise.name}`}>
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => setEditingExercise(exercise)} className="text-blue-400 hover:text-blue-600 p-2" aria-label={`Редактировать ${exercise.name}`}>
                                     <PencilIcon className="w-5 h-5" />
                                 </button>
-                                <button onClick={() => handleDeleteExercise(exercise)} className="text-red-500 hover:text-red-700 p-1" aria-label={`Удалить ${exercise.name}`}>
+                                <button onClick={() => handleDeleteExercise(exercise)} className="text-red-300 hover:text-red-600 p-2" aria-label={`Удалить ${exercise.name}`}>
                                     <TrashIcon className="w-5 h-5" />
                                 </button>
                             </div>
                         </li>
                     ))}
+                    {exercises.length === 0 && (
+                        <li className="p-8 text-center text-gray-400 text-sm">Список упражнений пуст</li>
+                    )}
                 </ul>
             </div>
             {editingExercise && (
