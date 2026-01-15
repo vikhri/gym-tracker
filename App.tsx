@@ -10,6 +10,7 @@ import HistoryView from './views/HistoryView';
 import LoginView from './views/LoginView';
 import useLocalStorage from './hooks/useLocalStorage';
 import WeightView from './views/WeightView';
+import StatisticsView from './views/StatisticsView';
 import Toast from './components/Toast';
 
 export const AppContext = createContext<{
@@ -273,6 +274,8 @@ const App: React.FC = () => {
                 return <ExercisesView />;
             case 'history':
                 return <HistoryView />;
+            case 'statistics':
+                return <StatisticsView />;
             case 'weight':
                 return <WeightView />;
             default:

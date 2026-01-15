@@ -10,6 +10,7 @@ import PlusIcon from './icons/PlusIcon';
 import ScaleIcon from './icons/ScaleIcon';
 import SyncIcon from './icons/SyncIcon';
 import CheckIcon from './icons/CheckIcon';
+import ChartBarIcon from './icons/ChartBarIcon';
 import FloatingActionButton from './FloatingActionButton';
 import { AppContext } from '../App';
 
@@ -63,6 +64,7 @@ const SideMenu: React.FC<{
         { id: 'workout', label: 'Тренировка', icon: PlusIcon },
         { id: 'exercises', label: 'Упражнения', icon: DumbbellIcon },
         { id: 'history', label: 'История тренировок', icon: ClipboardListIcon },
+        { id: 'statistics', label: 'Статистика', icon: ChartBarIcon },
         { id: 'weight', label: 'Мой вес', icon: ScaleIcon },
     ];
 
